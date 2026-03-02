@@ -26,12 +26,16 @@ public partial class App : System.Windows.Application
 
         var configuration = new ConfigurationBuilder()
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .AddEnvironmentVariables() // This method is part of the EnvironmentVariables package  
+            .AddEnvironmentVariables()
             .Build();
 
         var services = new ServiceCollection();
         ConfigureServices(services, configuration);
         _serviceProvider = services.BuildServiceProvider();
+
+        // Ensure the database and all tables exist before the UI starts.
+        // If the DB or tables are missing they will be created automatically.
+        _serviceProvider.EnsureDbCreatedAsync().GetAwaiter().GetResult();
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         mainWindow.Show();
