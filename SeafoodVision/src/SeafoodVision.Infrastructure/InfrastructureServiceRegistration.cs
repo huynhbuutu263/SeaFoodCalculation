@@ -17,9 +17,10 @@ public static class InfrastructureServiceRegistration
         IConfiguration configuration)
     {
         services.AddDbContext<SeafoodDbContext>(opts =>
-            opts.UseSqlServer(
+            opts.UseMySql(
                 configuration.GetConnectionString("DefaultConnection"),
-                sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
+                ServerVersion.AutoDetect(configuration.GetConnectionString("DefaultConnection")),
+                mysql => mysql.EnableRetryOnFailure(maxRetryCount: 3)));
 
         services.AddScoped<ISessionRepository, SessionRepository>();
 

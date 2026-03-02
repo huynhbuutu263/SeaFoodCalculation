@@ -37,7 +37,7 @@ SeafoodVision/
 │   │
 │   ├── SeafoodVision.Infrastructure/       # DB + cross-cutting – depends on Domain + Application
 │   │   ├── Data/
-│   │   │   ├── SeafoodDbContext.cs         # EF Core MSSQL context
+│   │   │   ├── SeafoodDbContext.cs         # EF Core MySQL context
 │   │   │   └── Repositories/
 │   │   │       └── SessionRepository.cs   # ISessionRepository implementation
 │   │   └── InfrastructureServiceRegistration.cs
@@ -252,7 +252,7 @@ GET  /health
                     count change  │            │  count change
                                   ▼            ▼
                          ┌──────────────┐  ┌──────────────────┐
-                         │  PLC via     │  │  MSSQL via       │
+                         │  PLC via     │  │  MySQL via       │
                          │  Modbus TCP  │  │  EF Core         │
                          │  (NModbus)   │  │  (SessionRepo)   │
                          └──────────────┘  └──────────────────┘
@@ -284,7 +284,7 @@ GET  /health
 
 | Key                           | Description                        | Default              |
 |-------------------------------|------------------------------------|----------------------|
-| `ConnectionStrings:Default`   | MSSQL connection string            | localhost / trusted  |
+| `ConnectionStrings:Default`   | MySQL connection string            | localhost / seafood_user  |
 | `Camera:Id`                   | Camera identifier                  | `CAM-01`             |
 | `Camera:ConnectionString`     | OpenCV capture arg (index or URL)  | `0` (default webcam) |
 | `PLC:Host`                    | PLC IP address                     | `192.168.1.100`      |

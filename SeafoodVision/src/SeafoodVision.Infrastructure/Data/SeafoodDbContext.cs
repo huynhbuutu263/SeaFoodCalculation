@@ -4,7 +4,7 @@ using SeafoodVision.Domain.Entities;
 namespace SeafoodVision.Infrastructure.Data;
 
 /// <summary>
-/// EF Core database context for the SeafoodVision MSSQL database.
+/// EF Core database context for the SeafoodVision MySQL database.
 /// </summary>
 public sealed class SeafoodDbContext : DbContext
 {
