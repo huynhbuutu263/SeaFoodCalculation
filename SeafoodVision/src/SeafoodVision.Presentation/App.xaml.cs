@@ -13,10 +13,10 @@ using System.Windows;
 
 namespace SeafoodVision.Presentation;
 
-/// <summary>
-/// Composition root: configures the DI container and launches the main window.
-/// </summary>
-public partial class App : Application
+/// <summary>  
+/// Composition root: configures the DI container and launches the main window.  
+/// </summary>  
+public partial class App : System.Windows.Application
 {
     private ServiceProvider? _serviceProvider;
 
@@ -26,7 +26,7 @@ public partial class App : Application
 
         var configuration = new ConfigurationBuilder()
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .AddEnvironmentVariables()
+            .AddEnvironmentVariables() // This method is part of the EnvironmentVariables package  
             .Build();
 
         var services = new ServiceCollection();

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SeafoodVision.Domain.Entities;
 using SeafoodVision.Infrastructure.Data;
 using SeafoodVision.Infrastructure.Data.Repositories;
+using Xunit;
 
 namespace SeafoodVision.Infrastructure.Tests;
 

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using SeafoodVision.Domain.Entities;
 using SeafoodVision.Domain.ValueObjects;
+using Xunit;
 
 namespace SeafoodVision.Domain.Tests;
 

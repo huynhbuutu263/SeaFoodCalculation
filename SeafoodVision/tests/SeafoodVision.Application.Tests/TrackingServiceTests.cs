@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SeafoodVision.Application.Services;
 using SeafoodVision.Domain.Entities;
 using SeafoodVision.Domain.ValueObjects;
+using Xunit;
 
 namespace SeafoodVision.Application.Tests;
 

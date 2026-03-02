@@ -33,7 +33,7 @@
         <Border Grid.Row="1" Background="#2D2D3F" CornerRadius="8" Padding="24">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="TOTAL COUNT" FontSize="16" HorizontalAlignment="Center"
-                           Foreground="#A0A0B0" LetterSpacing="4"/>
+                           Foreground="#A0A0B0"/>
                 <TextBlock Text="{Binding CurrentCount}" FontSize="96" FontWeight="Bold"
                            HorizontalAlignment="Center" Foreground="#7DF9A0"/>
                 <TextBlock Text="{Binding CurrentSession.CameraId, StringFormat='Camera: {0}', FallbackValue='No active session'}"
