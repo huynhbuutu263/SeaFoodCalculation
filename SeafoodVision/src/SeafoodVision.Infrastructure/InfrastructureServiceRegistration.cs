@@ -46,6 +46,6 @@ public static class InfrastructureServiceRegistration
 
         // EnsureCreatedAsync creates the database + all tables derived from the model
         // if they do not already exist.  It is a no-op when everything is already in place.
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.EnsureCreatedAsync().ConfigureAwait(false);
     }
 }
