@@ -35,7 +35,7 @@ public partial class App : System.Windows.Application
 
         // Ensure the database and all tables exist before the UI starts.
         // If the DB or tables are missing they will be created automatically.
-        _serviceProvider.EnsureDbCreatedAsync().GetAwaiter().GetResult();
+        Task.Run(() => _serviceProvider.EnsureDbCreatedAsync()).GetAwaiter().GetResult();
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
         mainWindow.Show();
