@@ -1,10 +1,11 @@
+using Microsoft.Extensions.Configuration.Binder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using SeafoodVision.Domain.Interfaces;
 using SeafoodVision.Hardware.Camera;
 using SeafoodVision.Hardware.PLC;
-
 namespace SeafoodVision.Hardware;
 
 /// <summary>

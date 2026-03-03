@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using OpenCvSharp;
 using System.Threading.Channels;
 
 namespace SeafoodVision.Hardware.Camera;
@@ -26,26 +27,16 @@ public sealed class UsbCameraSource : CameraSourceBase
         CancellationToken ct)
     {
         long frameIndex = 0;
-
-        // TODO: replace with OpenCvSharp / Emgu CV VideoCapture
-        // using var capture = new VideoCapture(_connectionString);
-        // var mat = new Mat();
-        // while (!ct.IsCancellationRequested)
-        // {
-        //     capture.Read(mat);
-        //     if (mat.Empty()) continue;
-        //     byte[] bytes = mat.ImEncode(".jpg");
-        //     await writer.WriteAsync((frameIndex++, DateTime.UtcNow, bytes), ct);
-        // }
-
+        using var capture = new VideoCapture(_connectionString);
         try
         {
+            var mat = new Mat();
             while (!ct.IsCancellationRequested)
             {
-                await writer.WriteAsync(
-                    (frameIndex++, DateTime.UtcNow, Array.Empty<byte>()), ct)
-                    .ConfigureAwait(false);
-                await Task.Delay(33, ct).ConfigureAwait(false);
+                capture.Read(mat);
+                if (mat.Empty()) continue;
+                byte[] bytes = mat.ImEncode(".jpg");
+                await writer.WriteAsync((frameIndex++, DateTime.UtcNow, bytes), ct);
             }
         }
         catch (OperationCanceledException) { }
