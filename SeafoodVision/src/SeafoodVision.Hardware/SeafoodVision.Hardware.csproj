@@ -4,6 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SeafoodVision.Hardware</RootNamespace>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SeafoodVision.Domain\SeafoodVision.Domain.csproj" />
@@ -16,5 +17,6 @@
     <PackageReference Include="NModbus" Version="3.0.81" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
     <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260302" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260302" />
   </ItemGroup>
 </Project>

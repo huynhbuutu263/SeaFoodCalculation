@@ -27,7 +27,10 @@ public sealed class UsbCameraSource : CameraSourceBase
         CancellationToken ct)
     {
         long frameIndex = 0;
-        using var capture = new VideoCapture(_connectionString);
+        var result = int.TryParse(_connectionString, out var connectionNumber);
+        using var capture = result
+            ? new VideoCapture(connectionNumber)
+            : new VideoCapture(_connectionString);
         try
         {
             var mat = new Mat();
