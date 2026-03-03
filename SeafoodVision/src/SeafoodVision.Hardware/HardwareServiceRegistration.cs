@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration.Binder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -6,6 +5,7 @@ using Microsoft.Extensions.Options;
 using SeafoodVision.Domain.Interfaces;
 using SeafoodVision.Hardware.Camera;
 using SeafoodVision.Hardware.PLC;
+
 namespace SeafoodVision.Hardware;
 
 /// <summary>
@@ -17,13 +17,15 @@ public static class HardwareServiceRegistration
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Camera: read CameraOptions from config, create the right adapter via factory,
+        // Bind CameraOptions from config using the Options pattern (no Binder package needed)
+        services.Configure<CameraOptions>(configuration.GetSection(CameraOptions.SectionName));
+
+        // Camera: resolve CameraOptions via IOptions<T>, create the right adapter via factory,
         // expose both ICameraSource and IFrameSource as the same singleton.
         services.AddSingleton<ICameraSource>(sp =>
         {
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            var options = new CameraOptions();
-            configuration.GetSection(CameraOptions.SectionName).Bind(options);
+            var options = sp.GetRequiredService<IOptions<CameraOptions>>().Value;
             return CameraSourceFactory.Create(options, loggerFactory);
         });
 
