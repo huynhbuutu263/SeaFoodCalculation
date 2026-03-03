@@ -16,13 +16,13 @@ public static class HardwareServiceRegistration
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Camera: read CameraOptions from config, create the right adapter via factory,
+        // Camera: bind CameraOptions from config, create the right adapter via factory,
         // expose both ICameraSource and IFrameSource as the same singleton.
+        services.Configure<CameraOptions>(configuration.GetSection(CameraOptions.SectionName));
         services.AddSingleton<ICameraSource>(sp =>
         {
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-            var options = new CameraOptions();
-            configuration.GetSection(CameraOptions.SectionName).Bind(options);
+            var options = sp.GetRequiredService<IOptions<CameraOptions>>().Value;
             return CameraSourceFactory.Create(options, loggerFactory);
         });
 
