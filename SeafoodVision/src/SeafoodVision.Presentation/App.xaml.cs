@@ -7,6 +7,7 @@ using SeafoodVision.Application.Services;
 using SeafoodVision.Domain.Interfaces;
 using SeafoodVision.Hardware;
 using SeafoodVision.Infrastructure;
+using SeafoodVision.Inspection;
 using SeafoodVision.Presentation.ViewModels;
 using SeafoodVision.Presentation.Views;
 using System.Windows;
@@ -53,6 +54,7 @@ public partial class App : System.Windows.Application
         services.AddInfrastructure(configuration);
         services.AddHardware(configuration);
         services.AddAIServices(configuration);
+        services.AddInspectionServices();
 
         services.AddScoped<ITrackingService, TrackingService>();
         services.AddScoped<ICountingService, CountingService>();

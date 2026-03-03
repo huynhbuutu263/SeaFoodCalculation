@@ -13,6 +13,7 @@
     <ProjectReference Include="..\SeafoodVision.Infrastructure\SeafoodVision.Infrastructure.csproj" />
     <ProjectReference Include="..\SeafoodVision.Hardware\SeafoodVision.Hardware.csproj" />
     <ProjectReference Include="..\SeafoodVision.AI\SeafoodVision.AI.csproj" />
+    <ProjectReference Include="..\..\SeafoodVision.Inspection\SeafoodVision.Inspection.csproj" />
   </ItemGroup>
   <ItemGroup>
 	<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.3" />

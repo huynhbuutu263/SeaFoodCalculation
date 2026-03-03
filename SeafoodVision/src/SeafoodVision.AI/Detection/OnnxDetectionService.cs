@@ -45,8 +45,16 @@ public sealed class OnnxDetectionService : IDetectionService, IAsyncDisposable
             sessionOptions.AppendExecutionProvider_CUDA();
             _logger.LogInformation("ONNX: CUDA execution provider requested");
         }
+        try
+        {
+            _session = new InferenceSession(_options.ModelPath, sessionOptions);
 
-        _session = new InferenceSession(_options.ModelPath, sessionOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load ONNX model from path: {Path}", _options.ModelPath);
+            return;
+        }
 
         if (_session.InputMetadata.Count == 0)
             throw new InvalidOperationException($"ONNX model at '{_options.ModelPath}' has no inputs.");

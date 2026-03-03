@@ -19,6 +19,7 @@ public sealed class CountingOrchestrator : ICountingOrchestrator
 {
     private readonly IFrameSource _frameSource;
     private readonly IDetectionService _detectionService;
+    private readonly IInspectionService _inspectionService;
     private readonly ITrackingService _trackingService;
     private readonly ICountingService _countingService;
     private readonly ILogger<CountingOrchestrator> _logger;
@@ -37,12 +38,14 @@ public sealed class CountingOrchestrator : ICountingOrchestrator
     public CountingOrchestrator(
         IFrameSource frameSource,
         IDetectionService detectionService,
+        IInspectionService inspectionService,
         ITrackingService trackingService,
         ICountingService countingService,
         ILogger<CountingOrchestrator> logger)
     {
         _frameSource = frameSource;
         _detectionService = detectionService;
+        _inspectionService = inspectionService;
         _trackingService = trackingService;
         _countingService = countingService;
         _logger = logger;
@@ -77,7 +80,8 @@ public sealed class CountingOrchestrator : ICountingOrchestrator
             try
             {
                 var rawDetections = await _detectionService.DetectAsync(data, ct);
-                var trackedItems = await _trackingService.UpdateAsync(rawDetections, capturedAt, ct);
+                var inspectedDetections = await _inspectionService.InspectAsync(data, rawDetections, ct);
+                var trackedItems = await _trackingService.UpdateAsync(inspectedDetections, capturedAt, ct);
                 var frame = new DetectionFrame(frameIndex, capturedAt, trackedItems);
                 await _countingService.ProcessFrameAsync(frame, ct);
             }
