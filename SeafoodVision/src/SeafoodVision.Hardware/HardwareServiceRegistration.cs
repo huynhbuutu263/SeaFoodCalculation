@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using SeafoodVision.Domain.Interfaces;
 using SeafoodVision.Hardware.Camera;
 using SeafoodVision.Hardware.PLC;
+
 namespace SeafoodVision.Hardware;
 
 /// <summary>
@@ -16,8 +17,8 @@ public static class HardwareServiceRegistration
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Camera: bind CameraOptions from config, create the right adapter via factory,
-        // expose both ICameraSource and IFrameSource as the same singleton.
+        // Bind CameraOptions from config using the Options pattern (no Binder package needed),
+        // then create the right adapter via factory and expose as singleton ICameraSource/IFrameSource.
         services.Configure<CameraOptions>(configuration.GetSection(CameraOptions.SectionName));
         services.AddSingleton<ICameraSource>(sp =>
         {
