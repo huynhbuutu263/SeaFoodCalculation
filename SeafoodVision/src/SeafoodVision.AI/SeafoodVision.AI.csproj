@@ -10,7 +10,12 @@
     <ProjectReference Include="..\SeafoodVision.Application\SeafoodVision.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Kept for optional HTTP fallback / dev stub usage -->
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <!-- In-process ONNX Runtime (use Microsoft.ML.OnnxRuntime.Gpu for NVIDIA GPU) -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.18.0" />
+    <!-- ImageSharp replaces Python PIL for frame decoding -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
   </ItemGroup>
 </Project>
