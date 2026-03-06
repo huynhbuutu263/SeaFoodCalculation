@@ -1,10 +1,15 @@
 <Window x:Class="SeafoodVision.Presentation.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="SeafoodVision – Real-Time Counting" Height="600" Width="900"
+        xmlns:conv="clr-namespace:SeafoodVision.Presentation.Converters"
+        Title="SeafoodVision – Real-Time Counting" Height="700" Width="1100"
         Background="#1E1E2E">
 
     <Window.Resources>
+        <conv:RelativeToPixelXConverter x:Key="RelativeToPixelXConverter" />
+        <conv:RelativeToPixelYConverter x:Key="RelativeToPixelYConverter" />
+        <conv:RelativeToPixelWidthConverter x:Key="RelativeToPixelWidthConverter" />
+        <conv:RelativeToPixelHeightConverter x:Key="RelativeToPixelHeightConverter" />
         <Style TargetType="Button">
             <Setter Property="Padding" Value="16,8"/>
             <Setter Property="FontSize" Value="14"/>
@@ -18,7 +23,8 @@
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="3*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -30,7 +36,7 @@
         </StackPanel>
 
         <!-- Live Count Display -->
-        <Border Grid.Row="1" Background="#2D2D3F" CornerRadius="8" Padding="24">
+        <Border Grid.Row="1" Background="#2D2D3F" CornerRadius="8" Padding="24" Margin="0,0,0,8">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="TOTAL COUNT" FontSize="16" HorizontalAlignment="Center"
                            Foreground="#A0A0B0"/>
@@ -41,12 +47,82 @@
             </StackPanel>
         </Border>
 
+        <!-- Video + detections -->
+        <Grid Grid.Row="2">
+            <Image x:Name="VideoImage"
+                   Source="{Binding VideoFrame}"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
+
+            <ItemsControl ItemsSource="{Binding Overlays}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Canvas />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="Canvas.Left">
+                            <Setter.Value>
+                                <MultiBinding Converter="{StaticResource RelativeToPixelXConverter}">
+                                    <Binding Path="X"/>
+                                    <Binding ElementName="VideoImage" Path="ActualWidth"/>
+                                </MultiBinding>
+                            </Setter.Value>
+                        </Setter>
+                        <Setter Property="Canvas.Top">
+                            <Setter.Value>
+                                <MultiBinding Converter="{StaticResource RelativeToPixelYConverter}">
+                                    <Binding Path="Y"/>
+                                    <Binding ElementName="VideoImage" Path="ActualHeight"/>
+                                </MultiBinding>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderBrush="Lime" BorderThickness="2">
+                            <Grid>
+                                <Rectangle Stroke="Lime" StrokeThickness="2">
+                                    <Rectangle.Width>
+                                        <MultiBinding Converter="{StaticResource RelativeToPixelWidthConverter}">
+                                            <Binding Path="Width"/>
+                                            <Binding ElementName="VideoImage" Path="ActualWidth"/>
+                                        </MultiBinding>
+                                    </Rectangle.Width>
+                                    <Rectangle.Height>
+                                        <MultiBinding Converter="{StaticResource RelativeToPixelHeightConverter}">
+                                            <Binding Path="Height"/>
+                                            <Binding ElementName="VideoImage" Path="ActualHeight"/>
+                                        </MultiBinding>
+                                    </Rectangle.Height>
+                                </Rectangle>
+                                <StackPanel Orientation="Horizontal"
+                                            Background="#80000000"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Margin="2">
+                                    <TextBlock Text="{Binding Label}" Foreground="White" Margin="2,0"/>
+                                    <TextBlock Text="{Binding Confidence, StringFormat='{}{0:P0}'}" Foreground="Yellow" Margin="2,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
+
         <!-- Control Bar -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
             <Button Content="▶  Start" Command="{Binding StartCommand}"
                     Background="#4CAF50" Foreground="White"/>
             <Button Content="⏹  Stop" Command="{Binding StopCommand}"
                     Background="#F44336" Foreground="White"/>
+            <CheckBox Content="Display video"
+                      IsChecked="{Binding IsDisplayVideoEnabled}"
+                      Foreground="White" Margin="16,0,0,0"/>
         </StackPanel>
     </Grid>
 </Window>

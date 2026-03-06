@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\src\SeafoodVision.Domain\SeafoodVision.Domain.csproj" />
+    <ProjectReference Include="..\SeafoodVision.Domain\SeafoodVision.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

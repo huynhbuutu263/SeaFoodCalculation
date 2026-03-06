@@ -19,4 +19,7 @@ public interface ICountingOrchestrator : IAsyncDisposable
 
     /// <summary>Fires on every new counting event with the updated total.</summary>
     event EventHandler<int> CountUpdated;
+
+    /// <summary>Fires when a new frame and its visual data (items, count) are ready for UI display.</summary>
+    event EventHandler<FrameVisualDto>? FrameVisualUpdated;
 }

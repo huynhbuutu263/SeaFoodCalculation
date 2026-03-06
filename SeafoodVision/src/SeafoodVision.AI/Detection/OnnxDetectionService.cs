@@ -23,8 +23,8 @@ namespace SeafoodVision.AI.Detection;
 /// </summary>
 public sealed class OnnxDetectionService : IDetectionService, IAsyncDisposable
 {
-    private readonly InferenceSession _session;
-    private readonly string _inputName;
+    private readonly InferenceSession? _session;
+    private readonly string? _inputName;
     private readonly OnnxOptions _options;
     private readonly ILogger<OnnxDetectionService> _logger;
 
@@ -45,14 +45,16 @@ public sealed class OnnxDetectionService : IDetectionService, IAsyncDisposable
             sessionOptions.AppendExecutionProvider_CUDA();
             _logger.LogInformation("ONNX: CUDA execution provider requested");
         }
+
         try
         {
             _session = new InferenceSession(_options.ModelPath, sessionOptions);
-
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load ONNX model from path: {Path}", _options.ModelPath);
+            _logger.LogError(ex, "Failed to load ONNX model from path: {Path}. Detection will be disabled.", _options.ModelPath);
+            _session = null;
+            _inputName = null;
             return;
         }
 
@@ -71,6 +73,12 @@ public sealed class OnnxDetectionService : IDetectionService, IAsyncDisposable
         byte[] frameData,
         CancellationToken cancellationToken = default)
     {
+        if (_session is null || string.IsNullOrEmpty(_inputName))
+        {
+            _logger.LogWarning("ONNX detection skipped: model session not initialized.");
+            return Task.FromResult<IReadOnlyList<SeafoodItem>>(Array.Empty<SeafoodItem>());
+        }
+
         return Task.Run(() => RunInference(frameData), cancellationToken);
     }
 
@@ -100,10 +108,13 @@ public sealed class OnnxDetectionService : IDetectionService, IAsyncDisposable
         });
 
         // 3. Run ONNX session
-        var inputs = new List<NamedOnnxValue>
-            { NamedOnnxValue.CreateFromTensor(_inputName, tensor) };
+        var inputName = _inputName!;
+        var session = _session!;
 
-        using var outputs = _session.Run(inputs);
+        var inputs = new List<NamedOnnxValue>
+            { NamedOnnxValue.CreateFromTensor(inputName, tensor) };
+
+        using var outputs = session.Run(inputs);
         var predictions = outputs[0].AsTensor<float>();
 
         // 4. Parse output — handle both YOLO output layouts
@@ -205,7 +216,7 @@ public sealed class OnnxDetectionService : IDetectionService, IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        _session.Dispose();
+        _session?.Dispose();
         return ValueTask.CompletedTask;
     }
 }

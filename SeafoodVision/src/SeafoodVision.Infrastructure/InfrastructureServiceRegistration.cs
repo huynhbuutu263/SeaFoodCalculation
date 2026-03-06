@@ -29,6 +29,7 @@ public static class InfrastructureServiceRegistration
                 mysql => mysql.EnableRetryOnFailure(maxRetryCount: 3)));
 
         services.AddScoped<ISessionRepository, SessionRepository>();
+        services.AddScoped<IRecipeRepository, RecipeRepository>();
 
         return services;
     }

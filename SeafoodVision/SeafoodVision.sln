@@ -20,7 +20,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeafoodVision.Application.T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeafoodVision.Infrastructure.Tests", "tests\SeafoodVision.Infrastructure.Tests\SeafoodVision.Infrastructure.Tests.csproj", "{A1B2C3D4-0009-0000-0000-000000000009}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeafoodVision.Inspection", "SeafoodVision.Inspection\SeafoodVision.Inspection.csproj", "{9B465FCC-58BC-437B-A0A3-E9C24E615141}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SeafoodVision.Inspection", "src\SeafoodVision.Inspection\SeafoodVision.Inspection.csproj", "{9B465FCC-58BC-437B-A0A3-E9C24E615141}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

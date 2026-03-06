@@ -34,6 +34,7 @@ public sealed class CountingOrchestrator : ICountingOrchestrator
             _session.StartedAt, _session.EndedAt, _session.TotalCount);
 
     public event EventHandler<int>? CountUpdated;
+    public event EventHandler<FrameVisualDto>? FrameVisualUpdated;
 
     public CountingOrchestrator(
         IFrameSource frameSource,
@@ -84,6 +85,14 @@ public sealed class CountingOrchestrator : ICountingOrchestrator
                 var trackedItems = await _trackingService.UpdateAsync(inspectedDetections, capturedAt, ct);
                 var frame = new DetectionFrame(frameIndex, capturedAt, trackedItems);
                 await _countingService.ProcessFrameAsync(frame, ct);
+
+                FrameVisualUpdated?.Invoke(this, new FrameVisualDto
+                {
+                    FrameBytes = data,
+                    Items = trackedItems,
+                    CapturedAt = capturedAt,
+                    TotalCount = _session?.TotalCount ?? 0
+                });
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)

@@ -1,9 +1,13 @@
 using Microsoft.Extensions.Logging;
 using SeafoodVision.Application.DTOs;
 using SeafoodVision.Application.Interfaces;
+using SeafoodVision.Presentation.Models;
+using SeafoodVision.Presentation.Services;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 
 namespace SeafoodVision.Presentation.ViewModels;
 
@@ -15,12 +19,15 @@ namespace SeafoodVision.Presentation.ViewModels;
 public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
 {
     private readonly ICountingOrchestrator _orchestrator;
+    private readonly IFrameVisualizationService _frameVisualization;
     private readonly ILogger<MainViewModel> _logger;
 
     private int _currentCount;
     private string _statusMessage = "Ready";
     private bool _isRunning;
     private CountingSessionDto? _currentSession;
+    private BitmapSource? _videoFrame;
+    private bool _isDisplayVideoEnabled;
 
     public int CurrentCount
     {
@@ -53,17 +60,36 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
         private set => SetField(ref _currentSession, value);
     }
 
+    public BitmapSource? VideoFrame
+    {
+        get => _videoFrame;
+        private set => SetField(ref _videoFrame, value);
+    }
+
+    public ObservableCollection<DetectionOverlay> Overlays { get; } = new();
+
+    public bool IsDisplayVideoEnabled
+    {
+        get => _isDisplayVideoEnabled;
+        set => SetField(ref _isDisplayVideoEnabled, value);
+    }
+
     public ICommand StartCommand => _startCommand;
     public ICommand StopCommand => _stopCommand;
 
     private readonly AsyncRelayCommand _startCommand;
     private readonly AsyncRelayCommand _stopCommand;
 
-    public MainViewModel(ICountingOrchestrator orchestrator, ILogger<MainViewModel> logger)
+    public MainViewModel(
+        ICountingOrchestrator orchestrator,
+        IFrameVisualizationService frameVisualization,
+        ILogger<MainViewModel> logger)
     {
         _orchestrator = orchestrator;
+        _frameVisualization = frameVisualization;
         _logger = logger;
         _orchestrator.CountUpdated += OnCountUpdated;
+        _orchestrator.FrameVisualUpdated += OnFrameVisualUpdated;
 
         _startCommand = new AsyncRelayCommand(StartAsync, () => !IsRunning);
         _stopCommand = new AsyncRelayCommand(StopAsync, () => IsRunning);
@@ -114,9 +140,38 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
         });
     }
 
+    private void OnFrameVisualUpdated(object? sender, FrameVisualDto e)
+    {
+        if (!IsDisplayVideoEnabled)
+            return;
+
+        System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            try
+            {
+                var (frame, overlays) = _frameVisualization.CreateVisuals(e);
+                if (frame is not null)
+                {
+                    VideoFrame = frame;
+                }
+
+                Overlays.Clear();
+                foreach (var overlay in overlays)
+                {
+                    Overlays.Add(overlay);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update video frame for UI.");
+            }
+        });
+    }
+
     public async ValueTask DisposeAsync()
     {
         _orchestrator.CountUpdated -= OnCountUpdated;
+        _orchestrator.FrameVisualUpdated -= OnFrameVisualUpdated;
         await _orchestrator.DisposeAsync();
     }
 
