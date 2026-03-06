@@ -1,0 +1,138 @@
+<Window x:Class="SeafoodVision.Presentation.Views.RecipeEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:viewmodels="clr-namespace:SeafoodVision.Presentation.ViewModels"
+        mc:Ignorable="d"
+        Title="Recipe Editor &amp; Vision Configuration" Height="700" Width="1200"
+        WindowStartupLocation="CenterOwner" Loaded="Window_Loaded"
+        d:DataContext="{d:DesignInstance Type=viewmodels:RecipeEditorViewModel, IsDesignTimeCreatable=False}">
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- TOP TOOLBAR -->
+        <Border Grid.Row="0" BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="0,0,0,10" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="SpaceBetween">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="💾 Save All To Database" Command="{Binding SaveChangesCommand}" Width="160" Padding="8" Background="#eef" FontWeight="Bold" Margin="0,0,20,0"/>
+
+                    <TextBlock Text="Reference File: " VerticalAlignment="Center" FontWeight="Bold" Margin="0,0,5,0"/>
+                    <TextBox Text="{Binding ReferenceImagePath, Mode=OneWay}" IsReadOnly="True" Width="300" VerticalContentAlignment="Center" Margin="0,0,5,0"/>
+                    <Button Content="📁 Browse Image" Command="{Binding LoadReferenceImageCommand}" Width="120" Padding="5"/>
+                    <TextBlock Text="(Required to configure Vision Steps)" VerticalAlignment="Center" FontStyle="Italic" Foreground="Gray" Margin="10,0,0,0"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- MAIN LAYOUT -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="350"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT PANEL: Recipes -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Inspection Recipes" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding Recipes}" 
+                         SelectedItem="{Binding SelectedRecipe, Mode=TwoWay}"
+                         DisplayMemberPath="Name" BorderBrush="Gray" BorderThickness="1" Margin="0,0,0,10"/>
+
+                <!-- Recipe Controls -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
+                    <Button Content="➕ New Recipe" Command="{Binding AddRecipeCommand}" Width="120" Padding="5" Margin="0,0,10,0"/>
+                    <Button Content="➖ Delete Recipe" Command="{Binding DeleteRecipeCommand}" Width="120" Padding="5" Background="#fee"/>
+                </StackPanel>
+
+                <!-- Selected Recipe Properties Viewer -->
+                <Border Grid.Row="3" BorderBrush="LightGray" BorderThickness="1" Padding="10" 
+                        Visibility="{Binding SelectedRecipe, Converter={StaticResource {x:Static Visibility.Visible}}}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Recipe Name:" Margin="0,0,10,10" VerticalAlignment="Center"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedRecipe.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,10" Padding="2"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Exec. Mode:" Margin="0,0,10,10" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding AvailableModes}" 
+                                  SelectedItem="{Binding SelectedRecipe.ExecutionMode, Mode=TwoWay}" Margin="0,0,0,10" Padding="2"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Is Active:" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding SelectedRecipe.IsActive, Mode=TwoWay}" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Grid Splitter -->
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="LightGray"/>
+
+            <!-- RIGHT PANEL: ROIs -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Regions of Interest (ROIs)" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+
+                <ListBox Grid.Row="1" ItemsSource="{Binding Rois}" 
+                         SelectedItem="{Binding SelectedRoi, Mode=TwoWay}"
+                         BorderBrush="Gray" BorderThickness="1" Margin="0,0,0,10">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,5">
+                                <TextBlock Text="{Binding Order, StringFormat='{}#{0} - '}" FontWeight="Bold"/>
+                                <TextBlock Text="{Binding Name}" Width="150" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding Region.RegionType, StringFormat='{}[{0}]'}" Foreground="SteelBlue" Margin="10,0"/>
+                                <TextBlock Text="{Binding Steps.Count, StringFormat='{} | {0} steps'}" Foreground="Gray"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Selected ROI Editors -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ROI Actions -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
+                        <Button Content="➕ Add ROI" Command="{Binding AddRoiCommand}" Width="100" Padding="8" Margin="0,0,10,0"/>
+                        <Button Content="➖ Delete ROI" Command="{Binding DeleteRoiCommand}" Width="100" Padding="8" Background="#fee"/>
+                    </StackPanel>
+
+                    <!-- Launchers to Phase 3 & 4 -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="✏️ Draw ROI Coordinates" Command="{Binding DrawRoiRegionCommand}" Width="180" Padding="8" Margin="0,0,10,0" Background="#fdf"/>
+                        <Button Content="⚙️ Edit Vision Pipeline" Command="{Binding ConfigureVisionStepsCommand}" Width="180" Padding="8" Background="#dff"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>
