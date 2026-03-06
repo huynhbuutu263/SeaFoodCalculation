@@ -122,7 +122,10 @@
                     Background="#F44336" Foreground="White"/>
             <CheckBox Content="Display video"
                       IsChecked="{Binding IsDisplayVideoEnabled}"
-                      Foreground="White" Margin="16,0,0,0"/>
+                      Foreground="White" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                      
+            <Button Content="🛠️ Edit Vision Recipe" Command="{Binding OpenRecipeEditorCommand}"
+                    Background="#2196F3" Foreground="White" Margin="32,0,0,0" Padding="12,8"/>
         </StackPanel>
     </Grid>
 </Window>

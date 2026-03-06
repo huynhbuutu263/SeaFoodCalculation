@@ -8,6 +8,10 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
+using Microsoft.Extensions.DependencyInjection;
+using SeafoodVision.Domain.Interfaces;
+using SeafoodVision.Inspection.Pipeline;
+using SeafoodVision.Presentation.Views;
 
 namespace SeafoodVision.Presentation.ViewModels;
 
@@ -21,6 +25,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
     private readonly ICountingOrchestrator _orchestrator;
     private readonly IFrameVisualizationService _frameVisualization;
     private readonly ILogger<MainViewModel> _logger;
+    private readonly IServiceProvider _serviceProvider;
 
     private int _currentCount;
     private string _statusMessage = "Ready";
@@ -76,6 +81,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
 
     public ICommand StartCommand => _startCommand;
     public ICommand StopCommand => _stopCommand;
+    public ICommand OpenRecipeEditorCommand { get; }
 
     private readonly AsyncRelayCommand _startCommand;
     private readonly AsyncRelayCommand _stopCommand;
@@ -83,16 +89,33 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
     public MainViewModel(
         ICountingOrchestrator orchestrator,
         IFrameVisualizationService frameVisualization,
-        ILogger<MainViewModel> logger)
+        ILogger<MainViewModel> logger,
+        IServiceProvider serviceProvider)
     {
         _orchestrator = orchestrator;
         _frameVisualization = frameVisualization;
         _logger = logger;
+        _serviceProvider = serviceProvider;
         _orchestrator.CountUpdated += OnCountUpdated;
         _orchestrator.FrameVisualUpdated += OnFrameVisualUpdated;
 
         _startCommand = new AsyncRelayCommand(StartAsync, () => !IsRunning);
         _stopCommand = new AsyncRelayCommand(StopAsync, () => IsRunning);
+        OpenRecipeEditorCommand = new RelayCommand(OnOpenRecipeEditor);
+    }
+
+    private void OnOpenRecipeEditor()
+    {
+        var recipeRepo = _serviceProvider.GetRequiredService<IRecipeRepository>();
+        var runner = _serviceProvider.GetRequiredService<RoiPipelineRunner>();
+
+        var editorVm = new RecipeEditorViewModel(recipeRepo, runner);
+        var dialog = new RecipeEditorDialog(editorVm)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        dialog.ShowDialog();
     }
 
     private async Task StartAsync()

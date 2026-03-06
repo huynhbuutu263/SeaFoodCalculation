@@ -13,25 +13,25 @@ public sealed class InspectionRecipe
 {
     private readonly List<RoiDefinition> _rois = [];
 
-    public Guid Id { get; private set; }
+    public Guid Id { get; set; }
 
     /// <summary>Human-readable name shown in the recipe list (e.g. "Shrimp Line 1").</summary>
-    public string Name { get; private set; }
+    public string Name { get; set; }
 
     /// <summary>Identifier of the camera this recipe applies to.</summary>
-    public string CameraId { get; private set; }
+    public string CameraId { get; set; }
 
     /// <summary>Whether this recipe is currently active for the pipeline.</summary>
-    public bool IsActive { get; private set; }
+    public bool IsActive { get; set; }
 
     /// <summary>Controls parallel vs sequential ROI execution.</summary>
-    public ExecutionMode ExecutionMode { get; private set; }
+    public ExecutionMode ExecutionMode { get; set; }
 
     /// <summary>UTC timestamp when the recipe was created.</summary>
-    public DateTime CreatedAt { get; private set; }
+    public DateTime CreatedAt { get; set; }
 
     /// <summary>UTC timestamp of the last modification.</summary>
-    public DateTime UpdatedAt { get; private set; }
+    public DateTime UpdatedAt { get; set; }
 
     /// <summary>Ordered ROI definitions belonging to this recipe.</summary>
     public IReadOnlyList<RoiDefinition> RoiDefinitions => _rois.AsReadOnly();

@@ -8,7 +8,9 @@
         Title="Recipe Editor &amp; Vision Configuration" Height="700" Width="1200"
         WindowStartupLocation="CenterOwner" Loaded="Window_Loaded"
         d:DataContext="{d:DesignInstance Type=viewmodels:RecipeEditorViewModel, IsDesignTimeCreatable=False}">
-
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Window.Resources>
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -17,7 +19,7 @@
 
         <!-- TOP TOOLBAR -->
         <Border Grid.Row="0" BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="0,0,0,10" Margin="0,0,0,10">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="SpaceBetween">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
                     <Button Content="💾 Save All To Database" Command="{Binding SaveChangesCommand}" Width="160" Padding="8" Background="#eef" FontWeight="Bold" Margin="0,0,20,0"/>
 
@@ -60,7 +62,7 @@
 
                 <!-- Selected Recipe Properties Viewer -->
                 <Border Grid.Row="3" BorderBrush="LightGray" BorderThickness="1" Padding="10" 
-                        Visibility="{Binding SelectedRecipe, Converter={StaticResource {x:Static Visibility.Visible}}}">
+                        Visibility="{Binding SelectedRecipe, Converter={StaticResource  BoolToVisibilityConverter}}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
