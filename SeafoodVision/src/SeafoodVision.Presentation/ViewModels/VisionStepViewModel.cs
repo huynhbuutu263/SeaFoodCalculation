@@ -51,6 +51,23 @@ public sealed class VisionStepViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Optional 1-based order of the step whose output should be used as this step's
+    /// primary input. Null = use the previous sequential step (default).
+    /// </summary>
+    public int? InputStepOrder
+    {
+        get => _step.InputStepOrder;
+        set
+        {
+            if (_step.InputStepOrder != value)
+            {
+                _step.UpdateInputStepOrder(value);
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>
     /// Persists current parameter state back into the JSON entity property.
     /// Call this when a slide/textbox loses focus in the UI.
     /// </summary>
@@ -83,6 +100,11 @@ public sealed class VisionStepViewModel : ViewModelBase
                 StepType.BlobDetector => JsonSerializer.Deserialize<BlobDetectorParams>(json, _jsonOptions) ?? new BlobDetectorParams(),
                 StepType.TemplateMatcher => JsonSerializer.Deserialize<TemplateMatcherParams>(json, _jsonOptions) ?? new TemplateMatcherParams(),
                 StepType.DefectDetector => JsonSerializer.Deserialize<DefectDetectorParams>(json, _jsonOptions) ?? new DefectDetectorParams(),
+                StepType.CropImage => JsonSerializer.Deserialize<CropParams>(json, _jsonOptions) ?? new CropParams(),
+                StepType.SubtractImage => JsonSerializer.Deserialize<SubtractImageParams>(json, _jsonOptions) ?? new SubtractImageParams(),
+                StepType.IntersectionRegion => JsonSerializer.Deserialize<IntersectionRegionParams>(json, _jsonOptions) ?? new IntersectionRegionParams(),
+                StepType.GetRectangle => JsonSerializer.Deserialize<GetRectangleParams>(json, _jsonOptions) ?? new GetRectangleParams(),
+                StepType.TemplateMatchRegion => JsonSerializer.Deserialize<TemplateMatchRegionParams>(json, _jsonOptions) ?? new TemplateMatchRegionParams(),
                 _ => new object()
             };
         }
@@ -108,6 +130,11 @@ public sealed class VisionStepViewModel : ViewModelBase
             StepType.BlobDetector => new BlobDetectorParams(),
             StepType.TemplateMatcher => new TemplateMatcherParams(),
             StepType.DefectDetector => new DefectDetectorParams(),
+            StepType.CropImage => new CropParams(),
+            StepType.SubtractImage => new SubtractImageParams(),
+            StepType.IntersectionRegion => new IntersectionRegionParams(),
+            StepType.GetRectangle => new GetRectangleParams(),
+            StepType.TemplateMatchRegion => new TemplateMatchRegionParams(),
             _ => new object()
         };
     }

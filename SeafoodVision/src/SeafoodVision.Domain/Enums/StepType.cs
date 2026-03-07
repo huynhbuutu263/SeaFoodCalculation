@@ -81,5 +81,36 @@ public enum StepType : short
     /// Absolute-difference defect detector (compares ROI to a golden reference).
     /// Params: ReferencePath, Sensitivity (0–255), MinDefectArea.
     /// </summary>
-    DefectDetector = 70
+    DefectDetector = 70,
+
+    // ── Region / Image manipulation ──────────────────────────────────
+    /// <summary>
+    /// Crop the image to a fixed rectangle (pixels).
+    /// Params: X, Y, Width, Height.
+    /// </summary>
+    CropImage = 80,
+
+    /// <summary>
+    /// Subtract another step's output from the current image (absolute difference).
+    /// Params: SecondaryInputStepOrder (1-based order of the secondary step).
+    /// </summary>
+    SubtractImage = 81,
+
+    /// <summary>
+    /// Bitwise AND of two binary masks (intersection of two regions).
+    /// Params: SecondaryInputStepOrder (1-based order of the secondary step).
+    /// </summary>
+    IntersectionRegion = 82,
+
+    /// <summary>
+    /// Draw the bounding rectangle(s) of all white regions in a binary mask.
+    /// Params: (none).
+    /// </summary>
+    GetRectangle = 83,
+
+    /// <summary>
+    /// Template matching where the template is cropped from the input image using a defined region.
+    /// Params: TemplateX, TemplateY, TemplateWidth, TemplateHeight, Method, MatchThreshold.
+    /// </summary>
+    TemplateMatchRegion = 84
 }

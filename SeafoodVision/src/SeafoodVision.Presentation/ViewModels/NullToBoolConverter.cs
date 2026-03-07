@@ -1,0 +1,20 @@
+using System.Globalization;
+using System.Windows.Data;
+
+namespace SeafoodVision.Presentation.ViewModels;
+
+/// <summary>
+/// Returns <c>true</c> when the bound value is not null; <c>false</c> when null.
+/// Used to enable/disable controls based on selection state.
+/// </summary>
+[ValueConversion(typeof(object), typeof(bool))]
+public sealed class NullToBoolConverter : IValueConverter
+{
+    public static readonly NullToBoolConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is not null;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

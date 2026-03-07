@@ -38,6 +38,10 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
                 HookSelectedStepPropertyChanges(oldStep: false);
                 UpdatePreview();
 
+                // Refresh input-source picker
+                OnPropertyChanged(nameof(AvailableInputSources));
+                SyncSelectedInputSource();
+
                 ((RelayCommand)RemoveCommand).RaiseCanExecuteChanged();
                 ((RelayCommand)MoveUpCommand).RaiseCanExecuteChanged();
                 ((RelayCommand)MoveDownCommand).RaiseCanExecuteChanged();
@@ -132,6 +136,37 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
         set => SetField(ref _selectedNewStepType, value);
     }
 
+    /// <summary>
+    /// Returns a list of step-order/name pairs that the currently selected step can reference as
+    /// a primary input (all steps that come before it in order).
+    /// The first item is always <c>null</c> representing the default sequential input.
+    /// </summary>
+    public IEnumerable<InputSourceItem> AvailableInputSources
+    {
+        get
+        {
+            yield return new InputSourceItem(null, "(Previous step – default)");
+            if (SelectedStep == null) yield break;
+            int selectedOrder = SelectedStep.Model.Order;
+            foreach (var step in Steps.Where(s => s.Model.Order < selectedOrder))
+                yield return new InputSourceItem(step.Model.Order, $"Step {step.Model.Order}: {step.Name}");
+        }
+    }
+
+    private InputSourceItem? _selectedInputSource;
+    public InputSourceItem? SelectedInputSource
+    {
+        get => _selectedInputSource;
+        set
+        {
+            if (SetField(ref _selectedInputSource, value) && SelectedStep != null)
+            {
+                SelectedStep.InputStepOrder = value?.Order;
+                UpdatePreview();
+            }
+        }
+    }
+
     #region Add / Remove / Reorder Logic
 
     private void OnAddStep()
@@ -194,6 +229,23 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
         
         ((RelayCommand)MoveUpCommand).RaiseCanExecuteChanged();
         ((RelayCommand)MoveDownCommand).RaiseCanExecuteChanged();
+        OnPropertyChanged(nameof(AvailableInputSources));
+    }
+
+    private void SyncSelectedInputSource()
+    {
+        if (SelectedStep == null)
+        {
+            _selectedInputSource = null;
+            OnPropertyChanged(nameof(SelectedInputSource));
+            return;
+        }
+
+        var order = SelectedStep.InputStepOrder;
+        _selectedInputSource = AvailableInputSources
+            .FirstOrDefault(s => s.Order == order)
+            ?? AvailableInputSources.First(); // default = "(Previous step)"
+        OnPropertyChanged(nameof(SelectedInputSource));
     }
 
     #endregion
@@ -204,4 +256,13 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
         HookSelectedStepPropertyChanges(oldStep: true);
         PreviewFrame = null;
     }
+}
+
+/// <summary>
+/// Represents a selectable input-source step in the Vision Config UI.
+/// <c>Order = null</c> means "use the default sequential input".
+/// </summary>
+public sealed record InputSourceItem(int? Order, string DisplayName)
+{
+    public override string ToString() => DisplayName;
 }

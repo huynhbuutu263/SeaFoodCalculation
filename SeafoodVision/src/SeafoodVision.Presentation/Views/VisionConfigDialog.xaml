@@ -6,7 +6,7 @@
         xmlns:viewmodels="clr-namespace:SeafoodVision.Presentation.ViewModels"
         xmlns:params="clr-namespace:SeafoodVision.Inspection.Pipeline.Models;assembly=SeafoodVision.Inspection"
         mc:Ignorable="d"
-        Title="Vision Execution Pipeline Configurator" Height="700" Width="1100"
+        Title="Vision Execution Pipeline Configurator" Height="760" Width="1200"
         WindowStartupLocation="CenterOwner"
         d:DataContext="{d:DesignInstance Type=viewmodels:VisionConfigViewModel, IsDesignTimeCreatable=False}">
 
@@ -56,6 +56,85 @@
             </StackPanel>
         </DataTemplate>
 
+        <!-- DataTemplate for CropParams -->
+        <DataTemplate DataType="{x:Type params:CropParams}">
+            <StackPanel Margin="10">
+                <TextBlock Text="Crop Region (pixels):" FontWeight="Bold" Margin="0,0,0,8"/>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="X:" VerticalAlignment="Center"/>
+                    <TextBox  Grid.Row="0" Grid.Column="1" Text="{Binding X, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Y:" VerticalAlignment="Center"/>
+                    <TextBox  Grid.Row="1" Grid.Column="1" Text="{Binding Y, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Width:" VerticalAlignment="Center"/>
+                    <TextBox  Grid.Row="2" Grid.Column="1" Text="{Binding Width, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Height:" VerticalAlignment="Center"/>
+                    <TextBox  Grid.Row="3" Grid.Column="1" Text="{Binding Height, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- DataTemplate for SubtractImageParams -->
+        <DataTemplate DataType="{x:Type params:SubtractImageParams}">
+            <StackPanel Margin="10">
+                <TextBlock Text="Subtract Image" FontWeight="Bold" Margin="0,0,0,8"/>
+                <TextBlock Text="Secondary Input Step Order:" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding SecondaryInputStepOrder, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="(Enter the 1-based order of the step whose output to subtract from the current image.)"
+                           Foreground="Gray" TextWrapping="Wrap" Margin="0,5,0,0" FontStyle="Italic" FontSize="11"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- DataTemplate for IntersectionRegionParams -->
+        <DataTemplate DataType="{x:Type params:IntersectionRegionParams}">
+            <StackPanel Margin="10">
+                <TextBlock Text="Intersection Region (Bitwise AND)" FontWeight="Bold" Margin="0,0,0,8"/>
+                <TextBlock Text="Secondary Input Step Order:" Margin="0,0,0,5"/>
+                <TextBox Text="{Binding SecondaryInputStepOrder, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="(Enter the 1-based order of the step whose binary mask to intersect with the current mask.)"
+                           Foreground="Gray" TextWrapping="Wrap" Margin="0,5,0,0" FontStyle="Italic" FontSize="11"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- DataTemplate for GetRectangleParams (no parameters) -->
+        <DataTemplate DataType="{x:Type params:GetRectangleParams}">
+            <StackPanel Margin="10">
+                <TextBlock Text="Get Bounding Rectangle" FontWeight="Bold" Margin="0,0,0,8"/>
+                <TextBlock Text="Draws the bounding rectangle of every white region in the binary input mask. No extra parameters."
+                           Foreground="Gray" TextWrapping="Wrap" FontStyle="Italic"/>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- DataTemplate for TemplateMatchRegionParams -->
+        <DataTemplate DataType="{x:Type params:TemplateMatchRegionParams}">
+            <StackPanel Margin="10">
+                <TextBlock Text="Template Region (pixels):" FontWeight="Bold" Margin="0,0,0,8"/>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Tmpl X:" VerticalAlignment="Center"/>
+                    <TextBox  Grid.Row="0" Grid.Column="1" Text="{Binding TemplateX, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Tmpl Y:" VerticalAlignment="Center"/>
+                    <TextBox  Grid.Row="1" Grid.Column="1" Text="{Binding TemplateY, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Tmpl W:" VerticalAlignment="Center"/>
+                    <TextBox  Grid.Row="2" Grid.Column="1" Text="{Binding TemplateWidth, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Tmpl H:" VerticalAlignment="Center"/>
+                    <TextBox  Grid.Row="3" Grid.Column="1" Text="{Binding TemplateHeight, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                </Grid>
+                <TextBlock Text="Match Threshold:" FontWeight="Bold" Margin="0,10,0,5"/>
+                <Slider Minimum="0" Maximum="1" Value="{Binding MatchThreshold, UpdateSourceTrigger=PropertyChanged}"
+                        TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="0,0,0,3"/>
+                <TextBlock Text="{Binding MatchThreshold, StringFormat={}{0:F2}}" HorizontalAlignment="Right"/>
+            </StackPanel>
+        </DataTemplate>
+
         <!-- Generic string formatting for Step Items -->
         <DataTemplate DataType="{x:Type viewmodels:VisionStepViewModel}">
             <TextBlock Text="{Binding Name}" Padding="5"/>
@@ -65,7 +144,7 @@
     <Grid Margin="10">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220"/>
-            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="310"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
@@ -112,30 +191,70 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 
-                <TextBlock Grid.Row="0" Text="Step Parameters" FontWeight="Bold" FontSize="14" Margin="0,0,0,10" Padding="5"/>
+                <TextBlock Grid.Row="0" Text="Step Parameters" FontWeight="Bold" FontSize="14" Margin="0,0,0,6" Padding="5"/>
+
+                <!-- Input source selector (step routing) -->
+                <StackPanel Grid.Row="1" Margin="5,0,5,8" Orientation="Vertical">
+                    <TextBlock Text="Primary Input Source:" FontWeight="SemiBold" Margin="0,0,0,3" FontSize="12"/>
+                    <ComboBox ItemsSource="{Binding AvailableInputSources}"
+                              SelectedItem="{Binding SelectedInputSource, Mode=TwoWay}"
+                              DisplayMemberPath="DisplayName"
+                              IsEnabled="{Binding SelectedStep, Converter={x:Static viewmodels:NullToBoolConverter.Instance}}"/>
+                </StackPanel>
+
+                <ContentControl Grid.Row="2" Content="{Binding SelectedStep.Parameters}"/>
                 
-                <ContentControl Grid.Row="1" Content="{Binding SelectedStep.Parameters}"/>
-                
-                <TextBlock Grid.Row="1" Text="(Select a Step. Note: Some advanced parameter templates may not be rendered in this view yet.)" 
+                <TextBlock Grid.Row="2" Text="(Select a Step. Note: Some advanced parameter templates may not be rendered in this view yet.)" 
                            Foreground="DarkGray" TextWrapping="Wrap" Margin="10" FontStyle="Italic"
                            VerticalAlignment="Bottom"/>
             </Grid>
         </Border>
 
-        <!-- RIGHT PANEL: Live Pipeline Preview -->
+        <!-- RIGHT PANEL: Live Pipeline Preview with zoom & coordinate display -->
         <Grid Grid.Column="2">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Text="Live Result Preview (Up to selected step)" FontWeight="Bold" FontSize="14" Margin="0,0,0,10"/>
-            
-            <Border Grid.Row="1" BorderBrush="#333" BorderThickness="2" Background="Black">
-                <Image Source="{Binding PreviewFrame}" Stretch="Uniform" />
+            <TextBlock Grid.Row="0" Text="Live Result Preview (Up to selected step)" FontWeight="Bold" FontSize="14" Margin="0,0,0,6"/>
+
+            <!-- Zoom toolbar + pixel info bar -->
+            <Border Grid.Row="1" Background="#F0F0F0" BorderBrush="LightGray" BorderThickness="1" Margin="0,0,0,4" Padding="4,3">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ZoomInButton"  Content="🔍+" Width="34" Margin="0,0,3,0" Padding="2" Click="ZoomIn_Click"  ToolTip="Zoom In (or use mouse wheel)"/>
+                    <Button x:Name="ZoomOutButton" Content="🔍−" Width="34" Margin="0,0,3,0" Padding="2" Click="ZoomOut_Click" ToolTip="Zoom Out"/>
+                    <Button x:Name="ZoomFitButton" Content="⬜" Width="30" Margin="0,0,8,0" Padding="2" Click="ZoomFit_Click"  ToolTip="Fit image to window"/>
+                    <TextBlock x:Name="ZoomLevelText" Text="100%" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="12" MinWidth="44"/>
+                    <TextBlock Text="📍" VerticalAlignment="Center" Margin="0,0,2,0"/>
+                    <TextBlock x:Name="CoordText" Text="X:—  Y:—" VerticalAlignment="Center" Margin="0,0,10,0" FontFamily="Consolas" FontSize="12" MinWidth="90"/>
+                    <TextBlock Text="RGB:" VerticalAlignment="Center" Margin="0,0,3,0"/>
+                    <TextBlock x:Name="RgbText" Text="R:—  G:—  B:—" VerticalAlignment="Center" FontFamily="Consolas" FontSize="12" MinWidth="110"/>
+                    <Border x:Name="ColorSwatch" Width="18" Height="18" BorderBrush="Gray" BorderThickness="1" Margin="4,0,0,0" CornerRadius="2"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Zoomable image viewer -->
+            <Border Grid.Row="2" BorderBrush="#333" BorderThickness="2" Background="#1A1A1A" ClipToBounds="True">
+                <ScrollViewer x:Name="ImageScrollViewer"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="ImageScrollViewer_PreviewMouseWheel">
+                    <Image x:Name="PreviewImage"
+                           Source="{Binding PreviewFrame}"
+                           Stretch="None"
+                           MouseMove="PreviewImage_MouseMove"
+                           MouseLeave="PreviewImage_MouseLeave">
+                        <Image.LayoutTransform>
+                            <ScaleTransform x:Name="ImageScaleTransform" ScaleX="1" ScaleY="1"/>
+                        </Image.LayoutTransform>
+                    </Image>
+                </ScrollViewer>
             </Border>
         </Grid>
     </Grid>
