@@ -21,6 +21,10 @@ src/SeafoodVision.Presentation/
   Views/
     RecipeEditorDialog.xaml    ← Master UI combining Recipe List and ROI list with action buttons
     RecipeEditorDialog.xaml.cs ← Code-behind that initializes the DB load
+
+src/SeafoodVision.Infrastructure/
+  Data/Repositories/
+    RecipeRepository.cs        ← MODIFIED: UpdateAsync now uses load+diff strategy for correct child sync
 ```
 
 ---
@@ -31,12 +35,14 @@ The **Recipe Editor Dialog** is the main entry point for configuring the inspect
 
 ### 2.1 Database Integration (EF Core via Repository)
 - Upon the UI `Window_Loaded` event, `RecipeEditorViewModel.InitializeAsync()` is fired, which yields all available Recipes from `IRecipeRepository.GetAllAsync()`.
-- Updates (like adding an ROI, or tweaking properties) sit in memory. 
-- The user must explicitly hit **"Save All To Database"**, which fires `SaveChangesCommand`. This sweeps through the observable collection and pushes inserts/updates via the asynchronous repository layer.
+- The ViewModel tracks `_existingIds` (a `HashSet<Guid>`) to know which recipes came from the database. New in-memory recipes are NOT in this set.
+- Updates (like adding an ROI, or tweaking properties) sit in memory.
+- The user must explicitly hit **"Save All To Database"**, which fires `SaveChangesCommand`. This sweeps through the observable collection and pushes inserts/updates via the asynchronous repository layer, then calls `SaveChangesAsync()` to commit.
+- After a successful save, `_existingIds` is updated to include newly saved recipes.
 
 ### 2.2 Reference Image Dependency
-- Launching the Drawing Dialog (Phase 3) or Vision Step Pipeline Editor (Phase 4) **requires** a backing image (`Mat`) to render over. 
-- You cannot launch these sub-dialogs unless the user clicks **Browse Image** and selects a reference frame. 
+- Launching the Drawing Dialog (Phase 3) or Vision Step Pipeline Editor (Phase 4) **requires** a backing image (`Mat`) to render over.
+- You cannot launch these sub-dialogs unless the user clicks **Browse Image** and selects a reference frame.
 - The ViewModel handles cleanup by enforcing `System.IDisposable` and securely calling `.Dispose()` on the unmanaged OpenCV `Mat` if a new frame is loaded or the window is closed.
 
 ### 2.3 Child Dialog Spawning Mechanisms
@@ -55,6 +61,26 @@ When you select an ROI and click either:
 ### 3.2 Dynamic List Updating
 - **Issue**: XAML ListBoxes can get disconnected if you swap out the root ObservableCollection.
 - **Fix**: Operations inside the ViewModel intentionally call `.Clear()` and `.Add()` items manually within `InitializeAsync` rather than re-instantiating `new ObservableCollection` variables, preserving WPF UI bindings.
+
+### 3.3 New vs Existing Recipe Detection
+- **Issue**: `InspectionRecipe.Create()` always assigns a new `Guid`, so the old `if (r.Id == Guid.Empty)` check was never true — new recipes would go through `UpdateAsync` and fail silently.
+- **Fix**: The ViewModel maintains a `_existingIds` (`HashSet<Guid>`) populated from the DB during `InitializeAsync()`. `OnSaveChanges` uses `_existingIds.Contains(r.Id)` to route each recipe to `AddAsync` or `UpdateAsync` correctly.
+
+### 3.4 Missing SaveChangesAsync Calls
+- **Issue**: `OnSaveChanges` and `OnDeleteRecipe` called `AddAsync`/`UpdateAsync`/`DeleteAsync` but never called `SaveChangesAsync()`, so no data was ever persisted to the database.
+- **Fix**: Both `OnSaveChanges` and `OnDeleteRecipe` now call `_repository.SaveChangesAsync()` after staging all operations.
+
+### 3.5 UpdateAsync Child Entity Synchronisation
+- **Issue**: The original `UpdateAsync` called `_context.InspectionRecipes.Update(entity)` on a disconnected entity. EF Core marks all children as `Modified`, so **new ROIs and Steps were never inserted** and **deleted ROIs were never removed**.
+- **Fix**: `RecipeRepository.UpdateAsync` now loads the existing record from the DB (with tracking), then diffs the incoming graph:
+  - New ROIs → added via `_context.RoiDefinitions.Add()`
+  - Removed ROIs → deleted via `_context.RoiDefinitions.Remove()` (cascade removes their Steps)
+  - Modified ROIs → scalar properties updated via `Entry.CurrentValues.SetValues()`
+  - Same logic recursively applied to Steps within each ROI
+
+### 3.6 Status Feedback
+- **Issue**: The original `OnSaveChanges` ended with a comment: `// Let's pretend we have a MessageBox or Status indicator...` — there was no user feedback.
+- **Fix**: Added a `StatusMessage` string property to `RecipeEditorViewModel` and bound it in the toolbar area of `RecipeEditorDialog.xaml`. The message updates on add, delete, save success, and save failure.
 
 ---
 
@@ -87,8 +113,16 @@ private void OnOpenRecipeEditor()
 
 ## 5. Quick Debug Checklist
 
-**Q: "Save All To Database" command drops properties or throws Entity errors.**
-- If you've modified how `RoiDefinition` or `InspectionStep` relates to EF Core internally, verify the navigation property mappings inside `AppDbContext` haven't broken cascades.
+**Q: "Save All To Database" reports success but data is not in MySQL.**
+- Verify `SaveChangesAsync()` is being reached (check for exceptions in `StatusMessage`).
+- Check MySQL connection string in `appsettings.json`.
+
+**Q: New ROIs added to an existing recipe are not saved.**
+- Confirmed fixed in this phase. `RecipeRepository.UpdateAsync` now loads tracked data from DB and diffs.
+- If still failing: check that `_existingIds` in the ViewModel is correctly seeded from `InitializeAsync`.
+
+**Q: "Save All To Database" throws an Entity tracking error.**
+- EF's change tracker can conflict when the same entity is loaded twice. Always make sure `RecipeEditorViewModel.InitializeAsync()` is called once at startup and the ViewModel is not shared across windows.
 
 **Q: Memory leaks when drawing or editing steps repeatedly.**
-- Monitor process overhead. Wait, why would it leak? Because `Mat` is unmanaged. The `RecipeEditorViewModel` holds the `_referenceMat`. Ensure the dialog's `Closed` event is triggering `viewModel.Dispose()`.
+- Monitor process overhead. The `RecipeEditorViewModel` holds the `_referenceMat` (unmanaged OpenCV). Ensure the dialog's `Closed` event triggers `viewModel.Dispose()`.

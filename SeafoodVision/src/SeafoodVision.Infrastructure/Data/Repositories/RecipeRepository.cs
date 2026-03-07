@@ -16,12 +16,10 @@ public sealed class RecipeRepository : IRecipeRepository
 
     public RecipeRepository(SeafoodDbContext context) => _context = context;
 
-    // Replace the problematic code with the following:
-
     public async Task<InspectionRecipe?> GetByIdAsync(Guid id, CancellationToken ct = default)
        => await _context.InspectionRecipes
-           .Include(r => r.RoiDefinitions) // Use strongly-typed navigation properties
-               .ThenInclude(roi => roi.Steps) // Ensure Steps is a valid navigation property
+           .Include(r => r.RoiDefinitions)
+               .ThenInclude(roi => roi.Steps)
            .FirstOrDefaultAsync(r => r.Id == id, ct);
 
     public async Task<IReadOnlyList<InspectionRecipe>> GetAllAsync(CancellationToken ct = default)
@@ -38,11 +36,83 @@ public sealed class RecipeRepository : IRecipeRepository
         await _context.InspectionRecipes.AddAsync(entity, ct);
     }
 
-    public Task UpdateAsync(InspectionRecipe entity, CancellationToken ct = default)
+    /// <summary>
+    /// Updates an existing recipe and synchronises its ROI and Step children:
+    /// new children are inserted, modified children are updated, and removed
+    /// children are deleted (EF cascade handles grandchildren automatically).
+    /// </summary>
+    public async Task UpdateAsync(InspectionRecipe entity, CancellationToken ct = default)
     {
-        PopulateShadowPropertiesAsync(entity).GetAwaiter().GetResult();
-        _context.InspectionRecipes.Update(entity);
-        return Task.CompletedTask;
+        await PopulateShadowPropertiesAsync(entity);
+
+        // Load the currently-tracked version from the DB so we can diff
+        var tracked = await _context.InspectionRecipes
+            .Include(r => r.RoiDefinitions)
+                .ThenInclude(roi => roi.Steps)
+            .FirstOrDefaultAsync(r => r.Id == entity.Id, ct);
+
+        if (tracked == null)
+        {
+            // Recipe was never persisted — treat as an Add
+            await AddAsync(entity, ct);
+            return;
+        }
+
+        // Update scalar properties on the root
+        _context.Entry(tracked).CurrentValues.SetValues(entity);
+
+        // ── Synchronise ROI collection ─────────────────────────────────────
+        var incomingRoiIds = entity.RoiDefinitions.Select(r => r.Id).ToHashSet();
+
+        // Delete ROIs that are no longer in the in-memory recipe
+        foreach (var orphanRoi in tracked.RoiDefinitions
+            .Where(r => !incomingRoiIds.Contains(r.Id))
+            .ToList())
+        {
+            _context.RoiDefinitions.Remove(orphanRoi); // cascade removes its steps
+        }
+
+        foreach (var incomingRoi in entity.RoiDefinitions)
+        {
+            var trackedRoi = tracked.RoiDefinitions.FirstOrDefault(r => r.Id == incomingRoi.Id);
+
+            if (trackedRoi == null)
+            {
+                // New ROI — set FK and add to context
+                var newRoiEntry = _context.Entry(incomingRoi);
+                newRoiEntry.Property("RegionTypeRaw").CurrentValue = (byte)incomingRoi.Region.RegionType;
+                newRoiEntry.Property("PointsJson").CurrentValue = SerialisePoints(incomingRoi.Region.Points);
+                _context.RoiDefinitions.Add(incomingRoi);
+            }
+            else
+            {
+                // Existing ROI — update scalar properties
+                _context.Entry(trackedRoi).CurrentValues.SetValues(incomingRoi);
+                var trackedEntry = _context.Entry(trackedRoi);
+                trackedEntry.Property("RegionTypeRaw").CurrentValue = (byte)incomingRoi.Region.RegionType;
+                trackedEntry.Property("PointsJson").CurrentValue = SerialisePoints(incomingRoi.Region.Points);
+
+                // ── Synchronise Step collection for this ROI ───────────────
+                var incomingStepIds = incomingRoi.Steps.Select(s => s.Id).ToHashSet();
+
+                // Delete steps that were removed
+                foreach (var orphanStep in trackedRoi.Steps
+                    .Where(s => !incomingStepIds.Contains(s.Id))
+                    .ToList())
+                {
+                    _context.InspectionSteps.Remove(orphanStep);
+                }
+
+                foreach (var incomingStep in incomingRoi.Steps)
+                {
+                    var trackedStep = trackedRoi.Steps.FirstOrDefault(s => s.Id == incomingStep.Id);
+                    if (trackedStep == null)
+                        _context.InspectionSteps.Add(incomingStep);
+                    else
+                        _context.Entry(trackedStep).CurrentValues.SetValues(incomingStep);
+                }
+            }
+        }
     }
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
@@ -51,8 +121,8 @@ public sealed class RecipeRepository : IRecipeRepository
     // ── IRecipeRepository ─────────────────────────────────────────────────────
 
     public async Task<IReadOnlyList<InspectionRecipe>> GetActiveAsync(
-   string cameraId, CancellationToken ct = default)
-   => await _context.InspectionRecipes
+       string cameraId, CancellationToken ct = default)
+       => await _context.InspectionRecipes
             .Include(r => r.RoiDefinitions)
                 .ThenInclude(roi => roi.Steps)
             .AsNoTracking()
