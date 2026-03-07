@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using SeafoodVision.Application.DTOs;
 using SeafoodVision.Application.Interfaces;
+using SeafoodVision.Inspection.Cache;
 using SeafoodVision.Presentation.Models;
 using SeafoodVision.Presentation.Services;
 using System.Collections.ObjectModel;
@@ -108,8 +109,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IAsyncDisposable
     {
         var recipeRepo = _serviceProvider.GetRequiredService<IRecipeRepository>();
         var runner = _serviceProvider.GetRequiredService<RoiPipelineRunner>();
+        var cache = _serviceProvider.GetService<IRecipeCache>();
 
-        var editorVm = new RecipeEditorViewModel(recipeRepo, runner);
+        var editorVm = new RecipeEditorViewModel(recipeRepo, runner, cache);
         var dialog = new RecipeEditorDialog(editorVm)
         {
             Owner = System.Windows.Application.Current.MainWindow

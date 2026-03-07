@@ -8,6 +8,7 @@ using SeafoodVision.Domain.Interfaces;
 using SeafoodVision.Hardware;
 using SeafoodVision.Infrastructure;
 using SeafoodVision.Inspection;
+using SeafoodVision.Inspection.Services;
 using SeafoodVision.Presentation.Services;
 using SeafoodVision.Presentation.ViewModels;
 using SeafoodVision.Presentation.Views;
@@ -55,6 +56,12 @@ public partial class App : System.Windows.Application
         services.AddInfrastructure(configuration);
         services.AddHardware(configuration);
         services.AddAIServices(configuration);
+
+        // Bind InspectionOptions from the Camera section so InspectionService
+        // knows which camera's active recipe to load from the DB.
+        services.Configure<InspectionOptions>(opts =>
+            opts.CameraId = configuration["Camera:Id"] ?? "CAM-01");
+
         services.AddInspectionServices();
 
         services.AddSingleton<IFrameVisualizationService, FrameVisualizationService>();

@@ -6,6 +6,7 @@ using OpenCvSharp;
 using SeafoodVision.Domain.Entities;
 using SeafoodVision.Domain.Enums;
 using SeafoodVision.Domain.Interfaces;
+using SeafoodVision.Inspection.Cache;
 using SeafoodVision.Inspection.Pipeline;
 using SeafoodVision.Presentation.Helpers;
 using SeafoodVision.Presentation.Views;
@@ -21,6 +22,7 @@ public sealed class RecipeEditorViewModel : ViewModelBase, IDisposable
 {
     private readonly IRecipeRepository _repository;
     private readonly RoiPipelineRunner _pipelineRunner;
+    private readonly IRecipeCache? _recipeCache;
 
     /// <summary>Tracks the IDs of recipes that already exist in the database.</summary>
     private readonly HashSet<Guid> _existingIds = new();
@@ -104,10 +106,11 @@ public sealed class RecipeEditorViewModel : ViewModelBase, IDisposable
     public ICommand DrawRoiRegionCommand { get; }
     public ICommand ConfigureVisionStepsCommand { get; }
 
-    public RecipeEditorViewModel(IRecipeRepository repository, RoiPipelineRunner pipelineRunner)
+    public RecipeEditorViewModel(IRecipeRepository repository, RoiPipelineRunner pipelineRunner, IRecipeCache? recipeCache = null)
     {
         _repository = repository;
         _pipelineRunner = pipelineRunner;
+        _recipeCache = recipeCache;
 
         LoadReferenceImageCommand = new RelayCommand(OnLoadReferenceImage);
         AddRecipeCommand = new RelayCommand(OnAddRecipe);
@@ -223,6 +226,12 @@ public sealed class RecipeEditorViewModel : ViewModelBase, IDisposable
             }
 
             await _repository.SaveChangesAsync();
+
+            // Invalidate the cache for all affected cameras so InspectionService
+            // picks up the updated recipes on the next processed frame.
+            var cameraIds = Recipes.Select(r => r.CameraId).Distinct();
+            foreach (var cam in cameraIds)
+                _recipeCache?.Invalidate(cam);
 
             // Mark all in-memory recipes as existing now
             foreach (var r in Recipes)
