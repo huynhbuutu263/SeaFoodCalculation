@@ -107,6 +107,8 @@ public class TemplateMatcherParams : ParameterBase
     private string _tp = ""; public string TemplatePath { get => _tp; set => SetField(ref _tp, value); }
     private TemplateMatchModes _m = TemplateMatchModes.CCoeffNormed; public TemplateMatchModes Method { get => _m; set => SetField(ref _m, value); }
     private double _mt = 0.8; public double MatchThreshold { get => _mt; set => SetField(ref _mt, value); }
+    private int _maxMatches = 1; public int MaxMatches { get => _maxMatches; set => SetField(ref _maxMatches, value); }
+    private double _nmsThreshold = 0.3; public double NMSThreshold { get => _nmsThreshold; set => SetField(ref _nmsThreshold, value); }
 }
 
 public class DefectDetectorParams : ParameterBase
@@ -146,4 +148,9 @@ public class TemplateMatchRegionParams : ParameterBase
     private int _th = 50; public int TemplateHeight { get => _th; set => SetField(ref _th, value); }
     private TemplateMatchModes _m = TemplateMatchModes.CCoeffNormed; public TemplateMatchModes Method { get => _m; set => SetField(ref _m, value); }
     private double _mt = 0.8; public double MatchThreshold { get => _mt; set => SetField(ref _mt, value); }
+    /// <summary>
+    /// Optional name of a recipe ROI whose bounds (relative to the current ROI crop) are used
+    /// as the template region.  When non-empty this takes precedence over the manual X/Y/W/H values.
+    /// </summary>
+    private string _roiSourceName = ""; public string RoiSourceName { get => _roiSourceName; set => SetField(ref _roiSourceName, value); }
 }
