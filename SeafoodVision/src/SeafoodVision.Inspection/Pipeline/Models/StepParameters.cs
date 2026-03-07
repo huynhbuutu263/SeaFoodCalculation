@@ -102,13 +102,21 @@ public class BlobDetectorParams : ParameterBase
     private int _bc = 255; public int BlobColor { get => _bc; set => SetField(ref _bc, value); }
 }
 
-public class TemplateMatcherParams : ParameterBase
+public class TemplateMatcherParams : ParameterBase, IHasSecondaryInput
 {
     private string _tp = ""; public string TemplatePath { get => _tp; set => SetField(ref _tp, value); }
     private TemplateMatchModes _m = TemplateMatchModes.CCoeffNormed; public TemplateMatchModes Method { get => _m; set => SetField(ref _m, value); }
     private double _mt = 0.8; public double MatchThreshold { get => _mt; set => SetField(ref _mt, value); }
     private int _maxMatches = 1; public int MaxMatches { get => _maxMatches; set => SetField(ref _maxMatches, value); }
     private double _nmsThreshold = 0.3; public double NMSThreshold { get => _nmsThreshold; set => SetField(ref _nmsThreshold, value); }
+    /// <summary>
+    /// When > 0, the output of the referenced step is used as the template image instead of
+    /// loading from <see cref="TemplatePath"/>. Typically references a <c>TemplateMatchRegion</c>
+    /// step that outputs the cropped template image.
+    /// </summary>
+    private int _tso = 0; public int TemplateStepOrder { get => _tso; set => SetField(ref _tso, value); }
+    // IHasSecondaryInput: step order 0 = "not set" (use TemplatePath instead)
+    int IHasSecondaryInput.SecondaryInputStepOrder => TemplateStepOrder;
 }
 
 public class DefectDetectorParams : ParameterBase
@@ -120,12 +128,20 @@ public class DefectDetectorParams : ParameterBase
 
 // ── Region / Image-manipulation parameters ───────────────────────────────
 
-public class CropParams : ParameterBase
+public class CropParams : ParameterBase, IHasSecondaryInput
 {
     private int _x = 0; public int X { get => _x; set => SetField(ref _x, value); }
     private int _y = 0; public int Y { get => _y; set => SetField(ref _y, value); }
     private int _w = 100; public int Width { get => _w; set => SetField(ref _w, value); }
     private int _h = 100; public int Height { get => _h; set => SetField(ref _h, value); }
+    /// <summary>
+    /// When > 0, the bounding rectangle of the non-zero pixels in the referenced step's output
+    /// is used as the crop region, overriding <see cref="X"/>, <see cref="Y"/>,
+    /// <see cref="Width"/> and <see cref="Height"/>.
+    /// </summary>
+    private int _rso = 0; public int RegionStepOrder { get => _rso; set => SetField(ref _rso, value); }
+    // IHasSecondaryInput: step order 0 = "not set" (use X/Y/W/H instead)
+    int IHasSecondaryInput.SecondaryInputStepOrder => RegionStepOrder;
 }
 
 public class SubtractImageParams : ParameterBase, IHasSecondaryInput
