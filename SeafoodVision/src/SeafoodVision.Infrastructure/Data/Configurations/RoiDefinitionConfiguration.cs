@@ -46,8 +46,13 @@ internal sealed class RoiDefinitionConfiguration : IEntityTypeConfiguration<RoiD
         // Region is handled via shadow columns above — tell EF to ignore the CLR property.
         builder.Ignore(r => r.Region);
 
-        // Use the property selector (not the backing-field string) so EF does not
-        // create a second navigation that conflicts with the auto-detected "_steps" field.
+        // Tell EF Core to use the private backing field "_steps" when populating this
+        // navigation, because the public property returns AsReadOnly() which is not
+        // writable and would throw NotSupportedException at materialisation time.
+        builder.Navigation(r => r.Steps)
+            .HasField("_steps")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasMany(r => r.Steps)
             .WithOne()
             .HasForeignKey(s => s.RoiDefinitionId)
