@@ -295,7 +295,8 @@ public sealed class RecipeEditorViewModel : ViewModelBase, IDisposable
     {
         if (SelectedRoi == null || _referenceMat == null) return;
 
-        var vm = new VisionConfigViewModel(SelectedRoi, _referenceMat, _pipelineRunner);
+        var allRois = SelectedRecipe?.RoiDefinitions.ToList() ?? new System.Collections.Generic.List<RoiDefinition>();
+        var vm = new VisionConfigViewModel(SelectedRoi, _referenceMat, _pipelineRunner, allRois);
         var dialog = new VisionConfigDialog(vm)
         {
             Owner = System.Windows.Application.Current.MainWindow

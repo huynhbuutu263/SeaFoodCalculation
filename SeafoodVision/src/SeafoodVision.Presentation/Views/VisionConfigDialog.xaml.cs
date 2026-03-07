@@ -1,7 +1,9 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using SeafoodVision.Domain.Entities;
 using SeafoodVision.Presentation.ViewModels;
 
 namespace SeafoodVision.Presentation.Views;
@@ -127,4 +129,20 @@ public partial class VisionConfigDialog : Window
             return (0, 0, 0);
         }
     }
+
+    // ── ROI source picker for TemplateMatchRegion ─────────────────────────────
+
+    /// <summary>
+    /// When the user picks a recipe ROI from the combo-box inside the TemplateMatchRegionParams
+    /// DataTemplate, forward the selection to the ViewModel so it can translate coordinates.
+    /// </summary>
+    private void RoiSourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is not VisionConfigViewModel vm) return;
+        if (sender is ComboBox combo && combo.SelectedItem is RoiDefinition selectedRoi)
+        {
+            vm.ApplyRoiAsTemplateRegion(selectedRoi);
+        }
+    }
 }
+

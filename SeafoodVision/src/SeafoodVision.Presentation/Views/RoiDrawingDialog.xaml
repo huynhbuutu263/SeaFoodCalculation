@@ -55,7 +55,8 @@
                 <Image Source="{Binding ReferenceFrame}" Stretch="Uniform" />
                 <controls:RoiCanvas 
                     Region="{Binding Region, Mode=TwoWay}"
-                    ActiveShapeType="{Binding ActiveShapeType}" />
+                    ActiveShapeType="{Binding ActiveShapeType}"
+                    ReferenceFrame="{Binding ReferenceFrame}" />
             </Grid>
         </Border>
 

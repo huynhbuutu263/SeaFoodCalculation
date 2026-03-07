@@ -23,13 +23,13 @@ public sealed class RoiPipelineRunner
         // 1. Convert normalised coordinates to pixel coordinates on this frame
         var rect = roi.Region.ToPixelRect(fullFrame.Width, fullFrame.Height);
 
-        // Optional safety clamp if ROI bounds go out of the frame
-        var safeRect = new OpenCvSharp.Rect(
-            Math.Max(0, rect.X),
-            Math.Max(0, rect.Y),
-            Math.Min(rect.Width, fullFrame.Width - rect.X),
-            Math.Min(rect.Height, fullFrame.Height - rect.Y)
-        );
+        // Safety clamp: ensure the crop stays fully within the frame boundaries
+        int safeX = Math.Max(0, rect.X);
+        int safeY = Math.Max(0, rect.Y);
+        // Width/Height must not extend beyond the frame from the (possibly clamped) origin
+        int safeW = Math.Min(rect.Width  - (safeX - rect.X), fullFrame.Width  - safeX);
+        int safeH = Math.Min(rect.Height - (safeY - rect.Y), fullFrame.Height - safeY);
+        var safeRect = new OpenCvSharp.Rect(safeX, safeY, safeW, safeH);
 
         if (safeRect.Width <= 0 || safeRect.Height <= 0)
             return new RoiResult(roi, new Mat(), false);

@@ -216,28 +216,65 @@ public static class StepExecutor
 
         var result = new Mat();
         Cv2.MatchTemplate(src, template, result, p.Method);
-        
-        // Find best match
-        Cv2.MinMaxLoc(result, out double minVal, out double maxVal, out OpenCvSharp.Point minLoc, out OpenCvSharp.Point maxLoc);
-        
-        // Check if map threshold passes
-        bool passed;
-        if (p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed)
-        {
-            passed = minVal <= p.MatchThreshold;
-        }
-        else
-        {
-            passed = maxVal >= p.MatchThreshold;
-        }
+
+        bool isSqDiff = p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed;
+        int maxMatches = Math.Max(1, p.MaxMatches);
+        double nmsOverlap = Math.Clamp(p.NMSThreshold, 0.0, 1.0);
 
         var dst = src.Clone();
-        if (passed)
+        var accepted = new List<OpenCvSharp.Rect>();
+
+        for (int m = 0; m < maxMatches; m++)
         {
-            var matchLoc = (p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed) ? minLoc : maxLoc;
-            Cv2.Rectangle(dst, matchLoc, new OpenCvSharp.Point(matchLoc.X + template.Cols, matchLoc.Y + template.Rows), Scalar.Red, 2);
+            Cv2.MinMaxLoc(result, out double minVal, out double maxVal,
+                out OpenCvSharp.Point minLoc, out OpenCvSharp.Point maxLoc);
+
+            double score = isSqDiff ? minVal : maxVal;
+            bool passed = isSqDiff ? minVal <= p.MatchThreshold : maxVal >= p.MatchThreshold;
+
+            if (!passed) break;
+
+            var matchLoc = isSqDiff ? minLoc : maxLoc;
+            var matchRect = new OpenCvSharp.Rect(matchLoc.X, matchLoc.Y, template.Cols, template.Rows);
+
+            // Non-maximum suppression: skip if heavily overlapping a previously accepted match
+            bool suppressed = false;
+            foreach (var prev in accepted)
+            {
+                var intersection = prev & matchRect; // & = intersect for OpenCvSharp Rect
+                double overlapArea = intersection.Width > 0 && intersection.Height > 0
+                    ? (double)(intersection.Width * intersection.Height)
+                    : 0;
+                double unionArea = prev.Width * prev.Height + matchRect.Width * matchRect.Height - overlapArea;
+                if (unionArea > 0 && overlapArea / unionArea > nmsOverlap)
+                {
+                    suppressed = true;
+                    break;
+                }
+            }
+
+            if (!suppressed)
+            {
+                accepted.Add(matchRect);
+                Cv2.Rectangle(dst, matchLoc,
+                    new OpenCvSharp.Point(matchLoc.X + template.Cols, matchLoc.Y + template.Rows),
+                    Scalar.Red, 2);
+            }
+
+            // Suppress this peak in the score map so the next iteration finds the next-best match
+            int maskPad = Math.Max(1, Math.Min(template.Cols, template.Rows) / 2);
+            int mx = Math.Max(0, matchLoc.X - maskPad);
+            int my = Math.Max(0, matchLoc.Y - maskPad);
+            int mw = Math.Min(result.Cols - mx, template.Cols + maskPad * 2);
+            int mh = Math.Min(result.Rows - my, template.Rows + maskPad * 2);
+            if (mw > 0 && mh > 0)
+            {
+                var maskRegion = new OpenCvSharp.Rect(mx, my, mw, mh);
+                result[maskRegion].SetTo(isSqDiff ? Scalar.All(double.MaxValue) : Scalar.All(-1));
+            }
         }
-        
+
+        result.Dispose();
         return dst;
     }
 

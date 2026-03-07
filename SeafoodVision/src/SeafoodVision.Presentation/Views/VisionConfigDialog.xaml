@@ -109,10 +109,56 @@
             </StackPanel>
         </DataTemplate>
 
+        <!-- DataTemplate for TemplateMatcherParams -->
+        <DataTemplate DataType="{x:Type params:TemplateMatcherParams}">
+            <StackPanel Margin="10">
+                <TextBlock Text="Template Matcher" FontWeight="Bold" Margin="0,0,0,8"/>
+                <TextBlock Text="Template Image Path:" Margin="0,0,0,3"/>
+                <TextBox Text="{Binding TemplatePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                <TextBlock Text="Match Threshold:" FontWeight="Bold" Margin="0,0,0,5"/>
+                <Slider Minimum="0" Maximum="1" Value="{Binding MatchThreshold, UpdateSourceTrigger=PropertyChanged}"
+                        TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="0,0,0,3"/>
+                <TextBlock Text="{Binding MatchThreshold, StringFormat={}{0:F2}}" HorizontalAlignment="Right" Margin="0,0,0,10"/>
+
+                <TextBlock Text="Max Matches:" FontWeight="Bold" Margin="0,0,0,5"/>
+                <Slider Minimum="1" Maximum="20" Value="{Binding MaxMatches, UpdateSourceTrigger=PropertyChanged}"
+                        TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,0,0,3"/>
+                <TextBlock Text="{Binding MaxMatches}" HorizontalAlignment="Right" Margin="0,0,0,10"/>
+
+                <TextBlock Text="NMS Overlap Threshold:" FontWeight="Bold" Margin="0,0,0,5"/>
+                <TextBlock Text="(Suppress duplicate detections whose IoU exceeds this value)"
+                           Foreground="Gray" FontStyle="Italic" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,3"/>
+                <Slider Minimum="0" Maximum="1" Value="{Binding NMSThreshold, UpdateSourceTrigger=PropertyChanged}"
+                        TickFrequency="0.05" IsSnapToTickEnabled="False" Margin="0,0,0,3"/>
+                <TextBlock Text="{Binding NMSThreshold, StringFormat={}{0:F2}}" HorizontalAlignment="Right"/>
+            </StackPanel>
+        </DataTemplate>
+
         <!-- DataTemplate for TemplateMatchRegionParams -->
         <DataTemplate DataType="{x:Type params:TemplateMatchRegionParams}">
             <StackPanel Margin="10">
-                <TextBlock Text="Template Region (pixels):" FontWeight="Bold" Margin="0,0,0,8"/>
+                <!-- Draw button – command lives in the parent VisionConfigViewModel via RelativeSource -->
+                <Button Content="🖼️ Draw Template Region on Preview"
+                        Command="{Binding DataContext.DrawTemplateRegionCommand,
+                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                        Padding="6,4" Margin="0,0,0,8" Background="#ddf" FontWeight="SemiBold"/>
+
+                <!-- ROI picker: select an existing recipe ROI as the template source -->
+                <TextBlock Text="— or pick a Recipe ROI as template —"
+                           HorizontalAlignment="Center" Foreground="Gray" FontStyle="Italic" FontSize="11" Margin="0,0,0,4"/>
+                <ComboBox x:Name="RoiSourceCombo"
+                          ItemsSource="{Binding DataContext.AllRois,
+                                         RelativeSource={RelativeSource AncestorType=Window}}"
+                          DisplayMemberPath="Name"
+                          SelectedValuePath="Name"
+                          SelectedValue="{Binding RoiSourceName, UpdateSourceTrigger=PropertyChanged}"
+                          SelectionChanged="RoiSourceCombo_SelectionChanged"
+                          Margin="0,0,0,10"/>
+
+                <Separator Margin="0,0,0,10"/>
+
+                <TextBlock Text="Template Region (pixels – relative to ROI crop):" FontWeight="Bold" Margin="0,0,0,8"/>
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -139,6 +185,17 @@
         <DataTemplate DataType="{x:Type viewmodels:VisionStepViewModel}">
             <TextBlock Text="{Binding Name}" Padding="5"/>
         </DataTemplate>
+
+        <!-- Style to gray out incompatible input source items in the ComboBox -->
+        <Style x:Key="InputSourceItemStyle" TargetType="ComboBoxItem">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCompatible}" Value="False">
+                    <Setter Property="IsEnabled" Value="False"/>
+                    <Setter Property="Foreground" Value="LightGray"/>
+                    <Setter Property="ToolTip" Value="Incompatible: output type of this step does not match the required input type."/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="10">
@@ -197,13 +254,18 @@
                 
                 <TextBlock Grid.Row="0" Text="Step Parameters" FontWeight="Bold" FontSize="14" Margin="0,0,0,6" Padding="5"/>
 
-                <!-- Input source selector (step routing) -->
+                <!-- Input source selector (step routing) with compatibility grayout -->
                 <StackPanel Grid.Row="1" Margin="5,0,5,8" Orientation="Vertical">
                     <TextBlock Text="Primary Input Source:" FontWeight="SemiBold" Margin="0,0,0,3" FontSize="12"/>
                     <ComboBox ItemsSource="{Binding AvailableInputSources}"
                               SelectedItem="{Binding SelectedInputSource, Mode=TwoWay}"
                               DisplayMemberPath="DisplayName"
-                              IsEnabled="{Binding SelectedStep, Converter={x:Static viewmodels:NullToBoolConverter.Instance}}"/>
+                              IsEnabled="{Binding SelectedStep, Converter={x:Static viewmodels:NullToBoolConverter.Instance}}"
+                              ItemContainerStyle="{StaticResource InputSourceItemStyle}"/>
+                    <TextBlock Text="⚠ Incompatible sources are grayed out"
+                               Foreground="Orange" FontSize="10" FontStyle="Italic" Margin="0,2,0,0"
+                               Visibility="{Binding SelectedStep, Converter={x:Static viewmodels:NullToBoolConverter.Instance},
+                                            ConverterParameter=Visibility}"/>
                 </StackPanel>
 
                 <ContentControl Grid.Row="2" Content="{Binding SelectedStep.Parameters}"/>
