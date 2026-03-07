@@ -9,6 +9,15 @@ namespace SeafoodVision.Inspection.Pipeline.Models;
 /// Inherit ParameterBase so WPF bindings instantly update Live Previews via PropertyChanged events.
 /// </summary>
 
+/// <summary>
+/// Marker interface for dual-input step parameters that carry a reference to a secondary
+/// pipeline step whose output is used as the second Mat input (e.g. subtract, intersect).
+/// </summary>
+public interface IHasSecondaryInput
+{
+    int SecondaryInputStepOrder { get; }
+}
+
 public abstract class ParameterBase : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -105,4 +114,36 @@ public class DefectDetectorParams : ParameterBase
     private string _rp = ""; public string ReferencePath { get => _rp; set => SetField(ref _rp, value); }
     private int _s = 30; public int Sensitivity { get => _s; set => SetField(ref _s, value); }
     private double _mda = 50; public double MinDefectArea { get => _mda; set => SetField(ref _mda, value); }
+}
+
+// ── Region / Image-manipulation parameters ───────────────────────────────
+
+public class CropParams : ParameterBase
+{
+    private int _x = 0; public int X { get => _x; set => SetField(ref _x, value); }
+    private int _y = 0; public int Y { get => _y; set => SetField(ref _y, value); }
+    private int _w = 100; public int Width { get => _w; set => SetField(ref _w, value); }
+    private int _h = 100; public int Height { get => _h; set => SetField(ref _h, value); }
+}
+
+public class SubtractImageParams : ParameterBase, IHasSecondaryInput
+{
+    private int _si = 1; public int SecondaryInputStepOrder { get => _si; set => SetField(ref _si, value); }
+}
+
+public class IntersectionRegionParams : ParameterBase, IHasSecondaryInput
+{
+    private int _si = 1; public int SecondaryInputStepOrder { get => _si; set => SetField(ref _si, value); }
+}
+
+public class GetRectangleParams : ParameterBase { }
+
+public class TemplateMatchRegionParams : ParameterBase
+{
+    private int _tx = 0; public int TemplateX { get => _tx; set => SetField(ref _tx, value); }
+    private int _ty = 0; public int TemplateY { get => _ty; set => SetField(ref _ty, value); }
+    private int _tw = 50; public int TemplateWidth { get => _tw; set => SetField(ref _tw, value); }
+    private int _th = 50; public int TemplateHeight { get => _th; set => SetField(ref _th, value); }
+    private TemplateMatchModes _m = TemplateMatchModes.CCoeffNormed; public TemplateMatchModes Method { get => _m; set => SetField(ref _m, value); }
+    private double _mt = 0.8; public double MatchThreshold { get => _mt; set => SetField(ref _mt, value); }
 }

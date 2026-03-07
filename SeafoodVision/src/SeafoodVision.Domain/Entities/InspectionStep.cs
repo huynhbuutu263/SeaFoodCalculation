@@ -24,6 +24,13 @@ public sealed class InspectionStep
     /// </summary>
     public string ParametersJson { get; private set; }
 
+    /// <summary>
+    /// Optional 1-based <see cref="Order"/> of a previous step whose output this step
+    /// should receive as its primary input instead of the immediately preceding step's output.
+    /// <c>null</c> means "use the previous sequential step's output" (default behaviour).
+    /// </summary>
+    public int? InputStepOrder { get; private set; }
+
     // Navigation (set by EF Core)
     public Guid RoiDefinitionId { get; private set; }
 
@@ -57,5 +64,16 @@ public sealed class InspectionStep
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(parametersJson);
         ParametersJson = parametersJson;
+    }
+
+    /// <summary>
+    /// Sets the optional primary-input step order (1-based).
+    /// Pass <c>null</c> to restore the default sequential input behaviour.
+    /// </summary>
+    public void UpdateInputStepOrder(int? order)
+    {
+        if (order.HasValue && order.Value < 1)
+            throw new ArgumentOutOfRangeException(nameof(order), "InputStepOrder must be ≥ 1 when specified.");
+        InputStepOrder = order;
     }
 }

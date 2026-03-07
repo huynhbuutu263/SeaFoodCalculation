@@ -21,6 +21,15 @@ public static class StepExecutor
 
     public static Mat Execute(Mat src, InspectionStep step)
     {
+        return Execute(src, null, step);
+    }
+
+    /// <summary>
+    /// Executes a step with an optional secondary input Mat (used by dual-input steps such as
+    /// <see cref="StepType.SubtractImage"/> and <see cref="StepType.IntersectionRegion"/>).
+    /// </summary>
+    public static Mat Execute(Mat src, Mat? secondary, InspectionStep step)
+    {
         return step.StepType switch
         {
             StepType.GrayConvert => ToGray(src),
@@ -35,6 +44,11 @@ public static class StepExecutor
             StepType.BlobDetector => ApplyBlobDetector(src, step),
             StepType.TemplateMatcher => ApplyTemplateMatcher(src, step),
             StepType.DefectDetector => ApplyDefectDetector(src, step),
+            StepType.CropImage => ApplyCropImage(src, step),
+            StepType.SubtractImage => ApplySubtractImage(src, secondary, step),
+            StepType.IntersectionRegion => ApplyIntersectionRegion(src, secondary, step),
+            StepType.GetRectangle => ApplyGetRectangle(src, step),
+            StepType.TemplateMatchRegion => ApplyTemplateMatchRegion(src, step),
             _ => throw new NotSupportedException($"Unsupported StepType: {step.StepType}")
         };
     }
@@ -250,5 +264,116 @@ public static class StepExecutor
 
         // Optional logic: clean up tiny dots and calculate defect areas via contours like in ApplyContourFilter
         return mask;
+    }
+
+    // ── Region / Image-manipulation steps ────────────────────────────────────
+
+    /// <summary>
+    /// Returns <paramref name="src"/> resized to match <paramref name="target"/>'s dimensions.
+    /// When sizes already match the original Mat is returned (no copy); otherwise a new Mat is returned.
+    /// </summary>
+    private static Mat EnsureSameSize(Mat src, Mat target)
+        => src.Size() == target.Size() ? src : src.Resize(target.Size());
+
+    private static Mat ApplyCropImage(Mat src, InspectionStep step)
+    {
+        var p = DeserializeParams<CropParams>(step.ParametersJson);
+
+        int x = Math.Max(0, p.X);
+        int y = Math.Max(0, p.Y);
+        int w = Math.Max(1, Math.Min(p.Width, src.Width - x));
+        int h = Math.Max(1, Math.Min(p.Height, src.Height - y));
+
+        if (w <= 0 || h <= 0) return src.Clone();
+
+        var roi = new OpenCvSharp.Rect(x, y, w, h);
+        return new Mat(src, roi).Clone();
+    }
+
+    private static Mat ApplySubtractImage(Mat src, Mat? secondary, InspectionStep step)
+    {
+        if (secondary is null || secondary.Empty()) return src.Clone();
+
+        using var secResized = EnsureSameSize(secondary, src);
+        var diff = new Mat();
+        Cv2.Absdiff(src, secResized, diff);
+        return diff;
+    }
+
+    private static Mat ApplyIntersectionRegion(Mat src, Mat? secondary, InspectionStep step)
+    {
+        if (secondary is null || secondary.Empty()) return src.Clone();
+
+        // Both inputs must be binary (single-channel). Convert if needed.
+        Mat m1 = src.Channels() == 1 ? src : ToGray(src);
+        Mat m2 = secondary.Channels() == 1 ? secondary : ToGray(secondary);
+
+        using var m2Sized = EnsureSameSize(m2, m1);
+        if (!ReferenceEquals(m2, secondary)) m2.Dispose();
+
+        var dst = new Mat();
+        Cv2.BitwiseAnd(m1, m2Sized, dst);
+
+        if (!ReferenceEquals(m1, src)) m1.Dispose();
+        return dst;
+    }
+
+    private static Mat ApplyGetRectangle(Mat src, InspectionStep step)
+    {
+        // Convert to binary mask to find contours
+        var gray = src.Channels() == 1 ? src : ToGray(src);
+        Cv2.FindContours(gray, out var contours, out _, RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+        // Draw on a colour copy so rectangles are visible
+        var dst = src.Channels() == 1
+            ? src.CvtColor(ColorConversionCodes.GRAY2BGR)
+            : src.Clone();
+
+        foreach (var contour in contours)
+        {
+            var rect = Cv2.BoundingRect(contour);
+            Cv2.Rectangle(dst, rect, Scalar.LimeGreen, 2);
+        }
+
+        if (!ReferenceEquals(gray, src)) gray.Dispose();
+        return dst;
+    }
+
+    private static Mat ApplyTemplateMatchRegion(Mat src, InspectionStep step)
+    {
+        var p = DeserializeParams<TemplateMatchRegionParams>(step.ParametersJson);
+
+        int tx = Math.Max(0, p.TemplateX);
+        int ty = Math.Max(0, p.TemplateY);
+        int tw = Math.Max(1, Math.Min(p.TemplateWidth, src.Width - tx));
+        int th = Math.Max(1, Math.Min(p.TemplateHeight, src.Height - ty));
+
+        if (tw <= 0 || th <= 0) return src.Clone();
+
+        using var template = new Mat(src, new OpenCvSharp.Rect(tx, ty, tw, th));
+
+        var result = new Mat();
+        Cv2.MatchTemplate(src, template, result, p.Method);
+
+        Cv2.MinMaxLoc(result, out double minVal, out double maxVal,
+            out OpenCvSharp.Point minLoc, out OpenCvSharp.Point maxLoc);
+        result.Dispose();
+
+        bool passed = (p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed)
+            ? minVal <= p.MatchThreshold
+            : maxVal >= p.MatchThreshold;
+
+        var dst = src.Clone();
+        if (passed)
+        {
+            var matchLoc = (p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed)
+                ? minLoc : maxLoc;
+            Cv2.Rectangle(dst, matchLoc,
+                new OpenCvSharp.Point(matchLoc.X + tw, matchLoc.Y + th),
+                Scalar.Red, 2);
+        }
+        // Draw the template region on the result
+        Cv2.Rectangle(dst, new OpenCvSharp.Rect(tx, ty, tw, th), Scalar.Yellow, 1);
+        return dst;
     }
 }
