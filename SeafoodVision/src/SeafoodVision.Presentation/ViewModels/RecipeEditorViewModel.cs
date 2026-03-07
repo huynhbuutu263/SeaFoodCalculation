@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
@@ -22,6 +21,9 @@ public sealed class RecipeEditorViewModel : ViewModelBase, IDisposable
 {
     private readonly IRecipeRepository _repository;
     private readonly RoiPipelineRunner _pipelineRunner;
+
+    /// <summary>Tracks the IDs of recipes that already exist in the database.</summary>
+    private readonly HashSet<Guid> _existingIds = new();
 
     // We keep these separate so we only commit to DB when user clicks "Save"
     public ObservableCollection<InspectionRecipe> Recipes { get; } = new();
@@ -79,6 +81,15 @@ public sealed class RecipeEditorViewModel : ViewModelBase, IDisposable
         private set => SetField(ref _referenceBitmap, value);
     }
 
+    // ── Status feedback ───────────────────────────────────────────────────────
+
+    private string _statusMessage = string.Empty;
+    public string StatusMessage
+    {
+        get => _statusMessage;
+        private set => SetField(ref _statusMessage, value);
+    }
+
     // ── Commands ──────────────────────────────────────────────────────────────
 
     public ICommand LoadReferenceImageCommand { get; }
@@ -114,8 +125,12 @@ public sealed class RecipeEditorViewModel : ViewModelBase, IDisposable
     {
         var dbRecipes = await _repository.GetAllAsync();
         Recipes.Clear();
+        _existingIds.Clear();
         foreach (var r in dbRecipes)
+        {
             Recipes.Add(r);
+            _existingIds.Add(r.Id);
+        }
 
         SelectedRecipe = Recipes.FirstOrDefault();
     }
@@ -157,28 +172,68 @@ public sealed class RecipeEditorViewModel : ViewModelBase, IDisposable
     {
         var r = InspectionRecipe.Create("New Recipe", "CAM-01");
         Recipes.Add(r);
+        // Note: do NOT add to _existingIds — the recipe is new (not yet in DB)
         SelectedRecipe = r;
+        StatusMessage = "New recipe created. Click 'Save All To Database' to persist.";
     }
 
     private async Task OnDeleteRecipe()
     {
         if (SelectedRecipe == null) return;
-        await _repository.DeleteAsync(SelectedRecipe.Id);
+        var idToDelete = SelectedRecipe.Id;
+        var isExisting = _existingIds.Contains(idToDelete);
+
         Recipes.Remove(SelectedRecipe);
+        _existingIds.Remove(idToDelete);
         SelectedRecipe = Recipes.FirstOrDefault();
+
+        if (isExisting)
+        {
+            // Only hit the DB if the recipe was actually persisted
+            await _repository.DeleteAsync(idToDelete);
+            await _repository.SaveChangesAsync();
+            StatusMessage = "Recipe deleted and saved.";
+        }
+        else
+        {
+            StatusMessage = "Recipe removed (was not yet saved to database).";
+        }
     }
 
     private async Task OnSaveChanges()
     {
-        foreach (var r in Recipes)
+        StatusMessage = "Saving…";
+        try
         {
-            if (r.Id == Guid.Empty)
-                await _repository.AddAsync(r);
-            else
-                await _repository.UpdateAsync(r);
+            int addedCount = 0;
+            int updatedCount = 0;
+
+            foreach (var r in Recipes)
+            {
+                if (_existingIds.Contains(r.Id))
+                {
+                    await _repository.UpdateAsync(r);
+                    updatedCount++;
+                }
+                else
+                {
+                    await _repository.AddAsync(r);
+                    addedCount++;
+                }
+            }
+
+            await _repository.SaveChangesAsync();
+
+            // Mark all in-memory recipes as existing now
+            foreach (var r in Recipes)
+                _existingIds.Add(r.Id);
+
+            StatusMessage = $"Saved: {addedCount} added, {updatedCount} updated.";
         }
-        
-        // Let's pretend we have a MessageBox or Status indicator...
+        catch (Exception ex)
+        {
+            StatusMessage = $"Save failed: {ex.Message}";
+        }
     }
 
     private void OnAddRoi()
