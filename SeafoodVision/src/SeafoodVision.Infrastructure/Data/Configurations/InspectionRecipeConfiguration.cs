@@ -37,8 +37,13 @@ internal sealed class InspectionRecipeConfiguration : IEntityTypeConfiguration<I
 
         builder.HasIndex(r => new { r.CameraId, r.IsActive });
 
-        // Use the property selector (not the backing-field string) so EF does not
-        // create a second navigation that conflicts with the auto-detected "_rois" field.
+        // Tell EF Core to use the private backing field "_rois" when populating this
+        // navigation, because the public property returns AsReadOnly() which is not
+        // writable and would throw NotSupportedException at materialisation time.
+        builder.Navigation(r => r.RoiDefinitions)
+            .HasField("_rois")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasMany(r => r.RoiDefinitions)
             .WithOne()
             .HasForeignKey(roi => roi.RecipeId)
