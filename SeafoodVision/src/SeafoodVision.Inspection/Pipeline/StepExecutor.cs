@@ -49,9 +49,6 @@ public static class StepExecutor
             StepType.IntersectionRegion => ApplyIntersectionRegion(src, secondary, step),
             StepType.GetRectangle => ApplyGetRectangle(src, step),
             StepType.AddRegion => ApplyAddRegion(src, step),
-            StepType.RegionFeatures => ApplyRegionFeatures(src, step),
-            StepType.AffineTransform => ApplyAffineTransform(src, step),
-            StepType.SmallestRectangle => ApplySmallestRectangle(src, step),
             _ => throw new NotSupportedException($"Unsupported StepType: {step.StepType}")
         };
     }
@@ -134,7 +131,7 @@ public static class StepExecutor
     {
         var p = DeserializeParams<MorphologyParams>(step.ParametersJson);
         var dst = new Mat();
-        var kernel = Cv2.GetStructuringElement(p.KernelShape, new OpenCvSharp.Size(p.KernelSize, p.KernelSize));
+        var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new OpenCvSharp.Size(p.KernelSize, p.KernelSize));
         Cv2.MorphologyEx(src, dst, p.Operation, kernel, iterations: p.Iterations);
         kernel.Dispose();
         return dst;
@@ -246,11 +243,6 @@ public static class StepExecutor
 
         try
         {
-            if (p.EnableRotation)
-            {
-                return ApplyRotationAwareTemplateMatcher(src, templateMat, p);
-            }
-
             var result = new Mat();
             Cv2.MatchTemplate(src, templateMat, result, p.Method);
 
@@ -259,8 +251,6 @@ public static class StepExecutor
             double nmsOverlap = Math.Clamp(p.NMSThreshold, 0.0, 1.0);
 
             var dst = src.Clone();
-            // Also produce a binary mask of matched rectangles so downstream steps can use it
-            var mask = new Mat(src.Size(), MatType.CV_8UC1, Scalar.Black);
             var accepted = new List<OpenCvSharp.Rect>();
 
             for (int m = 0; m < maxMatches; m++)
@@ -298,8 +288,6 @@ public static class StepExecutor
                     Cv2.Rectangle(dst, matchLoc,
                         new OpenCvSharp.Point(matchLoc.X + templateMat.Cols, matchLoc.Y + templateMat.Rows),
                         Scalar.Red, 2);
-                    // Fill the binary mask so downstream GetRectangle / CropImage steps can use it
-                    Cv2.Rectangle(mask, matchRect, Scalar.White, Cv2.FILLED);
                 }
 
                 // Suppress this peak in the score map so the next iteration finds the next-best match
@@ -315,7 +303,6 @@ public static class StepExecutor
                 }
             }
 
-            mask.Dispose();
             result.Dispose();
             return dst;
         }
@@ -323,117 +310,6 @@ public static class StepExecutor
         {
             if (ownTemplate) templateMat.Dispose();
         }
-    }
-
-    /// <summary>
-    /// Rotation-aware template matching: rotates the template over
-    /// [<see cref="TemplateMatcherParams.AngleStart"/>, <see cref="TemplateMatcherParams.AngleEnd"/>]
-    /// in steps of <see cref="TemplateMatcherParams.AngleStep"/> degrees and keeps the best hit.
-    /// An image pyramid (half-resolution coarse scan → full-resolution fine scan) is used to
-    /// reduce latency compared to a brute-force full-resolution search.
-    /// </summary>
-    private static Mat ApplyRotationAwareTemplateMatcher(Mat src, Mat templateMat, TemplateMatcherParams p)
-    {
-        bool isSqDiff = p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed;
-        double bestScore = isSqDiff ? double.MaxValue : double.MinValue;
-        double bestAngle = 0;
-        OpenCvSharp.Point bestLoc = default;
-        OpenCvSharp.Size bestSize = new OpenCvSharp.Size(templateMat.Cols, templateMat.Rows);
-
-        double angleStart = Math.Min(p.AngleStart, p.AngleEnd);
-        double angleEnd   = Math.Max(p.AngleStart, p.AngleEnd);
-        double angleStep  = Math.Max(0.1, Math.Abs(p.AngleStep));
-
-        // ── Coarse pass on half-resolution pyramid ────────────────────────
-        using var srcHalf  = new Mat();
-        using var tmplHalf = new Mat();
-        Cv2.Resize(src, srcHalf,  new OpenCvSharp.Size(src.Cols / 2, src.Rows / 2));
-        Cv2.Resize(templateMat, tmplHalf, new OpenCvSharp.Size(templateMat.Cols / 2, templateMat.Rows / 2));
-
-        double coarseStep = Math.Max(angleStep, 5.0);
-        double coarseBestAngle = 0;
-        double coarseBestScore = isSqDiff ? double.MaxValue : double.MinValue;
-
-        int coarseSteps = (int)Math.Ceiling((angleEnd - angleStart) / coarseStep);
-        for (int i = 0; i <= coarseSteps; i++)
-        {
-            double angle = angleStart + i * coarseStep;
-            if (angle > angleEnd) angle = angleEnd;
-            using var rotated = RotateImage(tmplHalf, angle);
-            if (rotated.Empty() || rotated.Cols > srcHalf.Cols || rotated.Rows > srcHalf.Rows) continue;
-
-            using var resultHalf = new Mat();
-            Cv2.MatchTemplate(srcHalf, rotated, resultHalf, p.Method);
-            Cv2.MinMaxLoc(resultHalf, out double minV, out double maxV, out _, out _);
-            double score = isSqDiff ? minV : maxV;
-            bool better  = isSqDiff ? score < coarseBestScore : score > coarseBestScore;
-            if (better) { coarseBestScore = score; coarseBestAngle = angle; }
-        }
-
-        // ── Fine pass around the coarse winner ────────────────────────────
-        double fineStart = Math.Max(angleStart, coarseBestAngle - coarseStep);
-        double fineEnd   = Math.Min(angleEnd,   coarseBestAngle + coarseStep);
-
-        int fineSteps = (int)Math.Ceiling((fineEnd - fineStart) / angleStep);
-        for (int i = 0; i <= fineSteps; i++)
-        {
-            double angle = fineStart + i * angleStep;
-            if (angle > fineEnd) angle = fineEnd;
-            using var rotated = RotateImage(templateMat, angle);
-            if (rotated.Empty() || rotated.Cols > src.Cols || rotated.Rows > src.Rows) continue;
-
-            using var resultMat = new Mat();
-            Cv2.MatchTemplate(src, rotated, resultMat, p.Method);
-            Cv2.MinMaxLoc(resultMat, out double minV, out double maxV,
-                out OpenCvSharp.Point minLoc, out OpenCvSharp.Point maxLoc);
-
-            double score = isSqDiff ? minV : maxV;
-            bool passed  = isSqDiff ? score <= p.MatchThreshold : score >= p.MatchThreshold;
-            bool better  = isSqDiff ? score < bestScore : score > bestScore;
-            if (passed && better)
-            {
-                bestScore = score;
-                bestAngle = angle;
-                bestLoc   = isSqDiff ? minLoc : maxLoc;
-                bestSize  = new OpenCvSharp.Size(rotated.Cols, rotated.Rows);
-            }
-        }
-
-        var dst = src.Clone();
-        if (bestScore != (isSqDiff ? double.MaxValue : double.MinValue))
-        {
-            // Draw the rotated rectangle on the colour output
-            var cx = bestLoc.X + bestSize.Width  / 2.0f;
-            var cy = bestLoc.Y + bestSize.Height / 2.0f;
-            var rrect = new RotatedRect(new Point2f((float)cx, (float)cy),
-                new OpenCvSharp.Size2f(bestSize.Width, bestSize.Height), (float)bestAngle);
-            var corners = Cv2.BoxPoints(rrect);
-            var pts = corners.Select(pt => new OpenCvSharp.Point((int)pt.X, (int)pt.Y)).ToArray();
-            Cv2.Polylines(dst, new[] { pts }, true, Scalar.Red, 2);
-        }
-        return dst;
-    }
-
-    /// <summary>Rotates <paramref name="src"/> by <paramref name="angle"/> degrees around its centre.</summary>
-    private static Mat RotateImage(Mat src, double angle)
-    {
-        var centre = new Point2f(src.Cols / 2.0f, src.Rows / 2.0f);
-        using var rot = Cv2.GetRotationMatrix2D(centre, angle, 1.0);
-
-        // Compute new bounding size so the rotated template fits without clipping
-        double cos = Math.Abs(rot.At<double>(0, 0));
-        double sin = Math.Abs(rot.At<double>(0, 1));
-        int newW = (int)(src.Rows * sin + src.Cols * cos);
-        int newH = (int)(src.Rows * cos + src.Cols * sin);
-
-        rot.At<double>(0, 2) += (newW - src.Cols) / 2.0;
-        rot.At<double>(1, 2) += (newH - src.Rows) / 2.0;
-
-        var dst = new Mat();
-        Cv2.WarpAffine(src, dst, rot, new OpenCvSharp.Size(newW, newH),
-            flags: InterpolationFlags.Linear,
-            borderMode: BorderTypes.Replicate);
-        return dst;
     }
 
     private static Mat ApplyDefectDetector(Mat src, InspectionStep step)
@@ -584,141 +460,5 @@ public static class StepExecutor
         // Output the cropped template image so that a downstream TemplateMatcher step
         // can reference it via TemplateStepOrder and use it as the template Mat directly.
         return new Mat(src, new OpenCvSharp.Rect(tx, ty, tw, th)).Clone();
-    }
-
-    // ── New steps ─────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Extracts geometric features from the largest contour in a binary mask and
-    /// draws them on a colour annotation image:
-    /// <list type="bullet">
-    ///   <item>Area (px²) and perimeter (px)</item>
-    ///   <item>Circularity  4π·A / P²</item>
-    ///   <item>Orientation (degrees from horizontal, from fitEllipse)</item>
-    ///   <item>Axis-aligned bounding rectangle</item>
-    ///   <item>Minimum enclosing circle (outer / circumscribed)</item>
-    ///   <item>Largest inscribed circle approximated via distance transform</item>
-    /// </list>
-    /// </summary>
-    private static Mat ApplyRegionFeatures(Mat src, InspectionStep step)
-    {
-        var gray = src.Channels() == 1 ? src : ToGray(src);
-        Cv2.FindContours(gray, out var contours, out _, RetrievalModes.External,
-            ContourApproximationModes.ApproxSimple);
-
-        // Work on a colour output image
-        var dst = src.Channels() == 1
-            ? src.CvtColor(ColorConversionCodes.GRAY2BGR)
-            : src.Clone();
-
-        if (contours.Length == 0)
-        {
-            if (!ReferenceEquals(gray, src)) gray.Dispose();
-            return dst;
-        }
-
-        // Pick the largest contour by area
-        var bestContour = contours
-            .OrderByDescending(c => Cv2.ContourArea(c))
-            .First();
-
-        double area      = Cv2.ContourArea(bestContour);
-        double perimeter = Cv2.ArcLength(bestContour, true);
-        double circ      = perimeter > 0 ? 4 * Math.PI * area / (perimeter * perimeter) : 0;
-
-        // Axis-aligned bounding rectangle
-        var boundRect = Cv2.BoundingRect(bestContour);
-        Cv2.Rectangle(dst, boundRect, new Scalar(0, 255, 0), 2);
-
-        // Minimum enclosing circle (outer / circumscribed circle)
-        Cv2.MinEnclosingCircle(bestContour, out Point2f encCenter, out float encRadius);
-        Cv2.Circle(dst, new OpenCvSharp.Point((int)encCenter.X, (int)encCenter.Y),
-            (int)encRadius, new Scalar(0, 0, 255), 2);
-
-        // Inscribed (inner) circle via distance transform
-        using var binary = new Mat();
-        var grayForDist = gray.Channels() == 1 ? gray : ToGray(gray);
-        Cv2.Threshold(grayForDist, binary, 127, 255, ThresholdTypes.Binary);
-        using var dist = new Mat();
-        Cv2.DistanceTransform(binary, dist, DistanceTypes.L2, DistanceTransformMasks.Mask5);
-        Cv2.MinMaxLoc(dist, out _, out double maxDist, out _, out OpenCvSharp.Point innerCenter);
-        if (!ReferenceEquals(grayForDist, gray)) grayForDist.Dispose();
-        Cv2.Circle(dst, innerCenter, (int)maxDist, new Scalar(255, 0, 0), 2);
-
-        // Orientation — requires at least 5 points for fitEllipse
-        double orientation = 0;
-        if (bestContour.Length >= 5)
-        {
-            var ellipse = Cv2.FitEllipse(bestContour);
-            orientation = ellipse.Angle;
-            Cv2.Ellipse(dst, ellipse, new Scalar(255, 255, 0), 2);
-        }
-
-        // Text overlay: key metrics
-        string line1 = $"Area={area:F0} Perim={perimeter:F1} Circ={circ:F3}";
-        string line2 = $"Orient={orientation:F1}deg EncR={encRadius:F1} InscR={maxDist:F1}";
-        Cv2.PutText(dst, line1, new OpenCvSharp.Point(4, 18),
-            HersheyFonts.HersheySimplex, 0.5, Scalar.White, 1, LineTypes.AntiAlias);
-        Cv2.PutText(dst, line2, new OpenCvSharp.Point(4, 36),
-            HersheyFonts.HersheySimplex, 0.5, Scalar.White, 1, LineTypes.AntiAlias);
-
-        if (!ReferenceEquals(gray, src)) gray.Dispose();
-        return dst;
-    }
-
-    /// <summary>
-    /// Applies a 2-D affine transformation (scale → rotate → translate) to the source image.
-    /// </summary>
-    private static Mat ApplyAffineTransform(Mat src, InspectionStep step)
-    {
-        var p = DeserializeParams<AffineTransformParams>(step.ParametersJson);
-
-        double cx = src.Cols / 2.0;
-        double cy = src.Rows / 2.0;
-
-        // Build: rotate + scale around the image centre, then apply translation
-        using var rot = Cv2.GetRotationMatrix2D(new Point2f((float)cx, (float)cy), p.Angle, 1.0);
-
-        // Apply non-uniform scale: row 0 controls X output (ScaleX), row 1 controls Y output (ScaleY)
-        rot.At<double>(0, 0) *= p.ScaleX;
-        rot.At<double>(0, 1) *= p.ScaleX;
-        rot.At<double>(1, 0) *= p.ScaleY;
-        rot.At<double>(1, 1) *= p.ScaleY;
-
-        // Apply translation
-        rot.At<double>(0, 2) += p.TranslateX;
-        rot.At<double>(1, 2) += p.TranslateY;
-
-        var dst = new Mat();
-        Cv2.WarpAffine(src, dst, rot, src.Size(),
-            flags: InterpolationFlags.Linear,
-            borderMode: BorderTypes.Replicate);
-        return dst;
-    }
-
-    /// <summary>
-    /// Computes the minimum-area rotated bounding rectangle for every contour in a binary
-    /// mask and draws it on a colour image using <c>Cv2.BoxPoints</c> + <c>Cv2.Polylines</c>.
-    /// </summary>
-    private static Mat ApplySmallestRectangle(Mat src, InspectionStep step)
-    {
-        var gray = src.Channels() == 1 ? src : ToGray(src);
-        Cv2.FindContours(gray, out var contours, out _, RetrievalModes.External,
-            ContourApproximationModes.ApproxSimple);
-
-        var dst = src.Channels() == 1
-            ? src.CvtColor(ColorConversionCodes.GRAY2BGR)
-            : src.Clone();
-
-        foreach (var contour in contours)
-        {
-            var rrect  = Cv2.MinAreaRect(contour);
-            var pts    = Cv2.BoxPoints(rrect);
-            var iPts   = pts.Select(pt => new OpenCvSharp.Point((int)pt.X, (int)pt.Y)).ToArray();
-            Cv2.Polylines(dst, new[] { iPts }, true, Scalar.Cyan, 2);
-        }
-
-        if (!ReferenceEquals(gray, src)) gray.Dispose();
-        return dst;
     }
 }

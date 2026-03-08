@@ -115,28 +115,5 @@ public enum StepType : short
     /// Params: TemplateX, TemplateY, TemplateWidth, TemplateHeight.
     /// Output: the cropped region image (Mat).
     /// </summary>
-    AddRegion = 84,
-
-    /// <summary>
-    /// Extracts geometric features from a binary mask (the largest contour):
-    /// area, perimeter, circularity, orientation, bounding rectangle,
-    /// minimum and maximum enclosing circles. Draws annotations on a colour overlay.
-    /// Params: (none — all features are computed and overlaid automatically).
-    /// </summary>
-    RegionFeatures = 85,
-
-    /// <summary>
-    /// Applies a 2-D affine transformation (translation, rotation and uniform/non-uniform
-    /// scale) to the source image.
-    /// Params: TranslateX, TranslateY, Angle (degrees), ScaleX, ScaleY.
-    /// </summary>
-    AffineTransform = 86,
-
-    /// <summary>
-    /// Computes the minimum-area rotated bounding rectangle for every contour in a binary
-    /// mask and draws it on a colour image (using <c>Cv2.BoxPoints</c> + <c>Cv2.Polylines</c>).
-    /// The resulting image encodes the rotated-rect geometry so that downstream steps can
-    /// consume it. Params: (none).
-    /// </summary>
-    SmallestRectangle = 87
+    AddRegion = 84
 }

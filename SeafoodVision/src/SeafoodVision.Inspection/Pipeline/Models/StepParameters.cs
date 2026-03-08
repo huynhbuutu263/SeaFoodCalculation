@@ -74,11 +74,6 @@ public class MorphologyParams : ParameterBase
     private MorphTypes _op = MorphTypes.Open; public MorphTypes Operation { get => _op; set => SetField(ref _op, value); }
     private int _ks = 3; public int KernelSize { get => _ks; set => SetField(ref _ks, value); }
     private int _it = 1; public int Iterations { get => _it; set => SetField(ref _it, value); }
-    /// <summary>
-    /// Shape used to build the structuring element.
-    /// Rect = rectangular kernel, Ellipse = circular/elliptic kernel, Cross = cross-shaped (mark) kernel.
-    /// </summary>
-    private MorphShapes _kernelShape = MorphShapes.Rect; public MorphShapes KernelShape { get => _kernelShape; set => SetField(ref _kernelShape, value); }
 }
 
 public class CannyParams : ParameterBase
@@ -134,18 +129,6 @@ public class TemplateMatcherParams : ParameterBase, IHasSecondaryInput
     private int _dry = 0; public int DrawRegionY { get => _dry; set => SetField(ref _dry, value); }
     private int _drw = 50; public int DrawRegionWidth { get => _drw; set => SetField(ref _drw, value); }
     private int _drh = 50; public int DrawRegionHeight { get => _drh; set => SetField(ref _drh, value); }
-
-    // ── Rotation-aware matching ─────────────────────────────────────────────
-    /// <summary>
-    /// When <c>true</c>, the matcher searches over <see cref="AngleStart"/> to
-    /// <see cref="AngleEnd"/> in steps of <see cref="AngleStep"/> degrees and returns the
-    /// best match across all tested angles (rotation-invariant template matching).
-    /// An image pyramid (half resolution) is used to reduce latency.
-    /// </summary>
-    private bool _enableRotation = false; public bool EnableRotation { get => _enableRotation; set => SetField(ref _enableRotation, value); }
-    private double _angleStart = -30; public double AngleStart { get => _angleStart; set => SetField(ref _angleStart, value); }
-    private double _angleEnd = 30; public double AngleEnd { get => _angleEnd; set => SetField(ref _angleEnd, value); }
-    private double _angleStep = 5; public double AngleStep { get => _angleStep; set => SetField(ref _angleStep, value); }
 }
 
 public class DefectDetectorParams : ParameterBase
@@ -199,31 +182,3 @@ public class AddRegionParams : ParameterBase
     /// </summary>
     private string _roiSourceName = ""; public string RoiSourceName { get => _roiSourceName; set => SetField(ref _roiSourceName, value); }
 }
-
-/// <summary>
-/// Parameters for the <c>RegionFeatures</c> step.
-/// All features (area, perimeter, circularity, orientation, bounding rectangle,
-/// inner / outer enclosing circles) are extracted automatically from the largest
-/// contour in the binary mask and annotated on a colour overlay.
-/// </summary>
-public class RegionFeaturesParams : ParameterBase { }
-
-/// <summary>
-/// Parameters for the <c>AffineTransform</c> step.
-/// The transformation is built as: scale → rotate → translate.
-/// </summary>
-public class AffineTransformParams : ParameterBase
-{
-    private double _tx = 0; public double TranslateX { get => _tx; set => SetField(ref _tx, value); }
-    private double _ty = 0; public double TranslateY { get => _ty; set => SetField(ref _ty, value); }
-    private double _angle = 0; public double Angle { get => _angle; set => SetField(ref _angle, value); }
-    private double _sx = 1.0; public double ScaleX { get => _sx; set => SetField(ref _sx, value); }
-    private double _sy = 1.0; public double ScaleY { get => _sy; set => SetField(ref _sy, value); }
-}
-
-/// <summary>
-/// Parameters for the <c>SmallestRectangle</c> step.
-/// Computes the minimum-area rotated bounding rectangle for every contour
-/// in a binary mask and draws it on a colour image.
-/// </summary>
-public class SmallestRectangleParams : ParameterBase { }
