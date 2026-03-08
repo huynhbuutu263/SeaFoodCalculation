@@ -43,7 +43,7 @@ public static class StepTypeInfo
         StepType.SubtractImage        => StepImageType.Any,
         StepType.IntersectionRegion   => StepImageType.Binary,
         StepType.GetRectangle         => StepImageType.Binary,
-        StepType.TemplateMatchRegion  => StepImageType.Color,
+        StepType.AddRegion            => StepImageType.Color,
         _                             => StepImageType.Any
     };
 
@@ -66,7 +66,7 @@ public static class StepTypeInfo
         StepType.SubtractImage        => StepImageType.Any,
         StepType.IntersectionRegion   => StepImageType.Binary,
         StepType.GetRectangle         => StepImageType.Color,
-        StepType.TemplateMatchRegion  => StepImageType.Color,
+        StepType.AddRegion            => StepImageType.Color,
         _                             => StepImageType.Any
     };
 

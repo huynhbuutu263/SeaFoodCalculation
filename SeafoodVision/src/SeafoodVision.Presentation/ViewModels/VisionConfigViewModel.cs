@@ -50,6 +50,8 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
                 ((RelayCommand)MoveUpCommand).RaiseCanExecuteChanged();
                 ((RelayCommand)MoveDownCommand).RaiseCanExecuteChanged();
                 ((RelayCommand)DrawTemplateRegionCommand).RaiseCanExecuteChanged();
+                ((RelayCommand)DrawTemplateMatcherRegionCommand).RaiseCanExecuteChanged();
+                ((RelayCommand)SaveTemplateImageCommand).RaiseCanExecuteChanged();
             }
         }
     }
@@ -67,13 +69,19 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
     public ICommand MoveUpCommand { get; }
     public ICommand MoveDownCommand { get; }
 
-    /// <summary>Opens a drawing dialog so the user can drag the TemplateMatchRegion rectangle on the input image.</summary>
+    /// <summary>Opens a drawing dialog so the user can drag the AddRegion rectangle on the input image.</summary>
     public ICommand DrawTemplateRegionCommand { get; }
+
+    /// <summary>Opens a drawing dialog so the user can draw a template region directly on the TemplateMatcher input image.</summary>
+    public ICommand DrawTemplateMatcherRegionCommand { get; }
+
+    /// <summary>Saves the currently drawn template region crop to a file and updates TemplatePath.</summary>
+    public ICommand SaveTemplateImageCommand { get; }
     
     public Action? CloseDialogAction { get; set; }
 
     /// <summary>
-    /// All ROI definitions in the parent recipe.  Exposed so that TemplateMatchRegion steps
+    /// All ROI definitions in the parent recipe.  Exposed so that AddRegion steps
     /// can reference an existing ROI as their template source.
     /// </summary>
     public IReadOnlyList<RoiDefinition> AllRois => _allRois;
@@ -100,7 +108,13 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
         MoveUpCommand = new RelayCommand(OnMoveUp, CanMoveUp);
         MoveDownCommand = new RelayCommand(OnMoveDown, CanMoveDown);
         DrawTemplateRegionCommand = new RelayCommand(OnDrawTemplateRegion,
-            () => SelectedStep?.Type == StepType.TemplateMatchRegion);
+            () => SelectedStep?.Type == StepType.AddRegion);
+        DrawTemplateMatcherRegionCommand = new RelayCommand(OnDrawTemplateMatcherRegion,
+            () => SelectedStep?.Type == StepType.TemplateMatcher);
+        SaveTemplateImageCommand = new RelayCommand(OnSaveTemplateImage,
+            () => SelectedStep?.Type == StepType.TemplateMatcher
+                  && SelectedStep?.Parameters is TemplateMatcherParams tp
+                  && tp.UseDrawnRegion && tp.DrawRegionWidth > 0 && tp.DrawRegionHeight > 0);
 
         UpdatePreview(); // Show raw ROI initially if zero steps
     }
@@ -197,15 +211,15 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
         }
     }
 
-    #region Draw Template Region
+    #region Draw Template Region (AddRegion step)
 
     /// <summary>
-    /// Opens a drawing dialog over the input image of the selected TemplateMatchRegion step
+    /// Opens a drawing dialog over the input image of the selected AddRegion step
     /// so the user can drag a rectangle instead of typing X/Y/W/H values.
     /// </summary>
     private void OnDrawTemplateRegion()
     {
-        if (SelectedStep == null || SelectedStep.Type != StepType.TemplateMatchRegion) return;
+        if (SelectedStep == null || SelectedStep.Type != StepType.AddRegion) return;
 
         // Run the pipeline up to (but NOT including) the selected step to get its input image
         int stepIndex = Steps.IndexOf(SelectedStep);
@@ -219,11 +233,11 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
         {
             ReferenceFrame = inputBitmap,
             ActiveShapeType = RegionType.Rectangle,
-            RoiName = "Template Region"
+            RoiName = "Add Region"
         };
 
         // Pre-populate with the current template rectangle if already set
-        if (SelectedStep.Parameters is TemplateMatchRegionParams existing
+        if (SelectedStep.Parameters is AddRegionParams existing
             && existing.TemplateWidth > 0 && existing.TemplateHeight > 0)
         {
             int fw = inputResult.ResultMat.Width;
@@ -247,7 +261,7 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
             var pixelRect = drawVm.Region.ToPixelRect(
                 inputResult.ResultMat.Width, inputResult.ResultMat.Height);
 
-            if (SelectedStep.Parameters is TemplateMatchRegionParams p)
+            if (SelectedStep.Parameters is AddRegionParams p)
             {
                 p.RoiSourceName = string.Empty; // manual draw clears any ROI reference
                 p.TemplateX = pixelRect.X;
@@ -261,14 +275,14 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
-    /// Applies the bounds of a recipe ROI as the template region for the selected
-    /// TemplateMatchRegion step.  The ROI coordinates are translated from full-frame
+    /// Applies the bounds of a recipe ROI as the region for the selected
+    /// AddRegion step.  The ROI coordinates are translated from full-frame
     /// normalised space into pixel offsets relative to the current ROI's crop.
     /// </summary>
     public void ApplyRoiAsTemplateRegion(RoiDefinition sourceRoi)
     {
-        if (SelectedStep?.Type != StepType.TemplateMatchRegion) return;
-        if (SelectedStep.Parameters is not TemplateMatchRegionParams p) return;
+        if (SelectedStep?.Type != StepType.AddRegion) return;
+        if (SelectedStep.Parameters is not AddRegionParams p) return;
 
         // Compute the current ROI crop offset in full-frame pixel space
         var currentCrop = _roi.Region.ToPixelRect(_fullFrame.Width, _fullFrame.Height);
@@ -284,6 +298,120 @@ public sealed class VisionConfigViewModel : ViewModelBase, IDisposable
 
         SelectedStep.SaveParametersToModel();
         UpdatePreview();
+    }
+
+    #endregion
+
+    #region Draw Template Region (TemplateMatcher step)
+
+    /// <summary>
+    /// Opens a drawing dialog over the input image of the selected TemplateMatcher step
+    /// so the user can draw an ROI to use as the template image at run-time.
+    /// </summary>
+    private void OnDrawTemplateMatcherRegion()
+    {
+        if (SelectedStep == null || SelectedStep.Type != StepType.TemplateMatcher) return;
+
+        // Run the pipeline up to (but NOT including) the selected step to get its input image
+        int stepIndex = Steps.IndexOf(SelectedStep);
+        using var inputResult = _pipelineRunner.Run(_fullFrame, _roi, stepIndex);
+        if (inputResult.ResultMat == null || inputResult.ResultMat.Empty()) return;
+
+        var inputBitmap = inputResult.ResultMat.ToBitmapSource();
+        if (inputBitmap == null) return;
+
+        var drawVm = new RoiDrawingViewModel
+        {
+            ReferenceFrame = inputBitmap,
+            ActiveShapeType = RegionType.Rectangle,
+            RoiName = "Template Region"
+        };
+
+        // Pre-populate with the current drawn region if already set
+        if (SelectedStep.Parameters is TemplateMatcherParams existing
+            && existing.UseDrawnRegion && existing.DrawRegionWidth > 0 && existing.DrawRegionHeight > 0)
+        {
+            int fw = inputResult.ResultMat.Width;
+            int fh = inputResult.ResultMat.Height;
+            if (fw > 0 && fh > 0)
+            {
+                var tl = new System.Drawing.PointF((float)existing.DrawRegionX / fw, (float)existing.DrawRegionY / fh);
+                var br = new System.Drawing.PointF(
+                    (float)(existing.DrawRegionX + existing.DrawRegionWidth) / fw,
+                    (float)(existing.DrawRegionY + existing.DrawRegionHeight) / fh);
+                drawVm.Region = RegionOfInterest.FromRectangle(tl, br);
+            }
+        }
+
+        var dialog = new RoiDrawingDialog(drawVm)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        if (dialog.ShowDialog() == true && drawVm.IsConfirmed && drawVm.Region != null)
+        {
+            var pixelRect = drawVm.Region.ToPixelRect(
+                inputResult.ResultMat.Width, inputResult.ResultMat.Height);
+
+            if (SelectedStep.Parameters is TemplateMatcherParams p)
+            {
+                p.UseDrawnRegion = true;
+                p.DrawRegionX      = pixelRect.X;
+                p.DrawRegionY      = pixelRect.Y;
+                p.DrawRegionWidth  = pixelRect.Width;
+                p.DrawRegionHeight = pixelRect.Height;
+                SelectedStep.SaveParametersToModel();
+                UpdatePreview();
+                ((RelayCommand)SaveTemplateImageCommand).RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Crops the drawn region from the current pipeline input image, saves it to a user-chosen
+    /// file, and updates <see cref="TemplateMatcherParams.TemplatePath"/> so the image can be
+    /// loaded from the file next time.  After saving, <see cref="TemplateMatcherParams.UseDrawnRegion"/>
+    /// is set to <c>false</c> so the file path takes effect going forward.
+    /// </summary>
+    private void OnSaveTemplateImage()
+    {
+        if (SelectedStep?.Type != StepType.TemplateMatcher) return;
+        if (SelectedStep.Parameters is not TemplateMatcherParams p) return;
+        if (!p.UseDrawnRegion || p.DrawRegionWidth <= 0 || p.DrawRegionHeight <= 0) return;
+
+        // Run the pipeline up to (but NOT including) the selected step to get its input image
+        int stepIndex = Steps.IndexOf(SelectedStep);
+        using var inputResult = _pipelineRunner.Run(_fullFrame, _roi, stepIndex);
+        if (inputResult.ResultMat == null || inputResult.ResultMat.Empty()) return;
+
+        // Crop the drawn region
+        int dx = Math.Max(0, p.DrawRegionX);
+        int dy = Math.Max(0, p.DrawRegionY);
+        int dw = Math.Max(1, Math.Min(p.DrawRegionWidth, inputResult.ResultMat.Width - dx));
+        int dh = Math.Max(1, Math.Min(p.DrawRegionHeight, inputResult.ResultMat.Height - dy));
+        if (dw <= 0 || dh <= 0) return;
+
+        using var crop = new OpenCvSharp.Mat(inputResult.ResultMat, new OpenCvSharp.Rect(dx, dy, dw, dh)).Clone();
+
+        // Prompt the user for a save path
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title  = "Save Template Image",
+            Filter = "PNG Image|*.png|JPEG Image|*.jpg|BMP Image|*.bmp|All Files|*.*",
+            DefaultExt = ".png",
+            FileName = "template"
+        };
+
+        if (dlg.ShowDialog() != true) return;
+
+        OpenCvSharp.Cv2.ImWrite(dlg.FileName, crop);
+
+        // Update params: switch from drawn-region mode to file mode
+        p.TemplatePath   = dlg.FileName;
+        p.UseDrawnRegion = false;
+        SelectedStep.SaveParametersToModel();
+        UpdatePreview();
+        ((RelayCommand)SaveTemplateImageCommand).RaiseCanExecuteChanged();
     }
 
     #endregion

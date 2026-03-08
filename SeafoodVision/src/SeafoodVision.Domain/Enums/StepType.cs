@@ -109,10 +109,11 @@ public enum StepType : short
     GetRectangle = 83,
 
     /// <summary>
-    /// Crops a region from the input image to produce a template image that a downstream
-    /// <see cref="TemplateMatcher"/> step can consume via its <c>TemplateStepOrder</c> parameter.
+    /// Crops a region from the input image (same concept as adding an ROI, but inside a ROI
+    /// pipeline). The cropped Mat is passed as a secondary input to downstream steps such as
+    /// <see cref="TemplateMatcher"/> via <c>TemplateStepOrder</c>.
     /// Params: TemplateX, TemplateY, TemplateWidth, TemplateHeight.
-    /// Output: the cropped template image (Mat).
+    /// Output: the cropped region image (Mat).
     /// </summary>
-    TemplateMatchRegion = 84
+    AddRegion = 84
 }

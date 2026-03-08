@@ -111,12 +111,24 @@ public class TemplateMatcherParams : ParameterBase, IHasSecondaryInput
     private double _nmsThreshold = 0.3; public double NMSThreshold { get => _nmsThreshold; set => SetField(ref _nmsThreshold, value); }
     /// <summary>
     /// When > 0, the output of the referenced step is used as the template image instead of
-    /// loading from <see cref="TemplatePath"/>. Typically references a <c>TemplateMatchRegion</c>
-    /// step that outputs the cropped template image.
+    /// loading from <see cref="TemplatePath"/>. Typically references an <c>AddRegion</c>
+    /// step that outputs the cropped region image.
     /// </summary>
     private int _tso = 0; public int TemplateStepOrder { get => _tso; set => SetField(ref _tso, value); }
     // IHasSecondaryInput: step order 0 = "not set" (use TemplatePath instead)
     int IHasSecondaryInput.SecondaryInputStepOrder => TemplateStepOrder;
+
+    // ── Draw-region template source ─────────────────────────────────────────
+    /// <summary>
+    /// When <c>true</c>, the region defined by <see cref="DrawRegionX"/>/Y/Width/Height is
+    /// cropped from the source image at run-time and used as the template instead of
+    /// <see cref="TemplatePath"/> or <see cref="TemplateStepOrder"/>.
+    /// </summary>
+    private bool _useDrawnRegion = false; public bool UseDrawnRegion { get => _useDrawnRegion; set => SetField(ref _useDrawnRegion, value); }
+    private int _drx = 0; public int DrawRegionX { get => _drx; set => SetField(ref _drx, value); }
+    private int _dry = 0; public int DrawRegionY { get => _dry; set => SetField(ref _dry, value); }
+    private int _drw = 50; public int DrawRegionWidth { get => _drw; set => SetField(ref _drw, value); }
+    private int _drh = 50; public int DrawRegionHeight { get => _drh; set => SetField(ref _drh, value); }
 }
 
 public class DefectDetectorParams : ParameterBase
@@ -156,7 +168,7 @@ public class IntersectionRegionParams : ParameterBase, IHasSecondaryInput
 
 public class GetRectangleParams : ParameterBase { }
 
-public class TemplateMatchRegionParams : ParameterBase
+public class AddRegionParams : ParameterBase
 {
     private int _tx = 0; public int TemplateX { get => _tx; set => SetField(ref _tx, value); }
     private int _ty = 0; public int TemplateY { get => _ty; set => SetField(ref _ty, value); }
@@ -166,7 +178,7 @@ public class TemplateMatchRegionParams : ParameterBase
     private double _mt = 0.8; public double MatchThreshold { get => _mt; set => SetField(ref _mt, value); }
     /// <summary>
     /// Optional name of a recipe ROI whose bounds (relative to the current ROI crop) are used
-    /// as the template region.  When non-empty this takes precedence over the manual X/Y/W/H values.
+    /// as the region.  When non-empty this takes precedence over the manual X/Y/W/H values.
     /// </summary>
     private string _roiSourceName = ""; public string RoiSourceName { get => _roiSourceName; set => SetField(ref _roiSourceName, value); }
 }
