@@ -106,6 +106,10 @@ public sealed class RoiPipelineRunner
                 TryGetSecondaryOrder<SeafoodVision.Inspection.Pipeline.Models.SubtractImageParams>(step.ParametersJson),
             SeafoodVision.Domain.Enums.StepType.IntersectionRegion =>
                 TryGetSecondaryOrder<SeafoodVision.Inspection.Pipeline.Models.IntersectionRegionParams>(step.ParametersJson),
+            SeafoodVision.Domain.Enums.StepType.TemplateMatcher =>
+                TryGetSecondaryOrder<SeafoodVision.Inspection.Pipeline.Models.TemplateMatcherParams>(step.ParametersJson),
+            SeafoodVision.Domain.Enums.StepType.CropImage =>
+                TryGetSecondaryOrder<SeafoodVision.Inspection.Pipeline.Models.CropParams>(step.ParametersJson),
             _ => null
         };
 

@@ -42,9 +42,9 @@ public static class StepExecutor
             StepType.Canny => ApplyCanny(src, step),
             StepType.ContourFilter => ApplyContourFilter(src, step),
             StepType.BlobDetector => ApplyBlobDetector(src, step),
-            StepType.TemplateMatcher => ApplyTemplateMatcher(src, step),
+            StepType.TemplateMatcher => ApplyTemplateMatcher(src, secondary, step),
             StepType.DefectDetector => ApplyDefectDetector(src, step),
-            StepType.CropImage => ApplyCropImage(src, step),
+            StepType.CropImage => ApplyCropImage(src, secondary, step),
             StepType.SubtractImage => ApplySubtractImage(src, secondary, step),
             StepType.IntersectionRegion => ApplyIntersectionRegion(src, secondary, step),
             StepType.GetRectangle => ApplyGetRectangle(src, step),
@@ -205,77 +205,99 @@ public static class StepExecutor
         return dst;
     }
 
-    private static Mat ApplyTemplateMatcher(Mat src, InspectionStep step)
+    private static Mat ApplyTemplateMatcher(Mat src, Mat? secondary, InspectionStep step)
     {
         var p = DeserializeParams<TemplateMatcherParams>(step.ParametersJson);
-        if (string.IsNullOrEmpty(p.TemplatePath) || !System.IO.File.Exists(p.TemplatePath))
-            return src.Clone();
 
-        using var template = Cv2.ImRead(p.TemplatePath, ImreadModes.Color);
-        if (template.Empty()) return src.Clone();
+        // Prefer the secondary input (from a TemplateMatchRegion step) over the file path
+        Mat? templateMat = null;
+        bool ownTemplate = false;
 
-        var result = new Mat();
-        Cv2.MatchTemplate(src, template, result, p.Method);
-
-        bool isSqDiff = p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed;
-        int maxMatches = Math.Max(1, p.MaxMatches);
-        double nmsOverlap = Math.Clamp(p.NMSThreshold, 0.0, 1.0);
-
-        var dst = src.Clone();
-        var accepted = new List<OpenCvSharp.Rect>();
-
-        for (int m = 0; m < maxMatches; m++)
+        if (secondary != null && !secondary.Empty())
         {
-            Cv2.MinMaxLoc(result, out double minVal, out double maxVal,
-                out OpenCvSharp.Point minLoc, out OpenCvSharp.Point maxLoc);
+            templateMat = secondary;
+        }
+        else if (!string.IsNullOrEmpty(p.TemplatePath) && System.IO.File.Exists(p.TemplatePath))
+        {
+            templateMat = Cv2.ImRead(p.TemplatePath, ImreadModes.Color);
+            ownTemplate = true;
+        }
 
-            double score = isSqDiff ? minVal : maxVal;
-            bool passed = isSqDiff ? minVal <= p.MatchThreshold : maxVal >= p.MatchThreshold;
+        if (templateMat == null || templateMat.Empty())
+        {
+            if (ownTemplate) templateMat?.Dispose();
+            return src.Clone();
+        }
 
-            if (!passed) break;
+        try
+        {
+            var result = new Mat();
+            Cv2.MatchTemplate(src, templateMat, result, p.Method);
 
-            var matchLoc = isSqDiff ? minLoc : maxLoc;
-            var matchRect = new OpenCvSharp.Rect(matchLoc.X, matchLoc.Y, template.Cols, template.Rows);
+            bool isSqDiff = p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed;
+            int maxMatches = Math.Max(1, p.MaxMatches);
+            double nmsOverlap = Math.Clamp(p.NMSThreshold, 0.0, 1.0);
 
-            // Non-maximum suppression: skip if heavily overlapping a previously accepted match
-            bool suppressed = false;
-            foreach (var prev in accepted)
+            var dst = src.Clone();
+            var accepted = new List<OpenCvSharp.Rect>();
+
+            for (int m = 0; m < maxMatches; m++)
             {
-                var intersection = prev & matchRect; // & = intersect for OpenCvSharp Rect
-                double overlapArea = intersection.Width > 0 && intersection.Height > 0
-                    ? (double)(intersection.Width * intersection.Height)
-                    : 0;
-                double unionArea = prev.Width * prev.Height + matchRect.Width * matchRect.Height - overlapArea;
-                if (unionArea > 0 && overlapArea / unionArea > nmsOverlap)
+                Cv2.MinMaxLoc(result, out double minVal, out double maxVal,
+                    out OpenCvSharp.Point minLoc, out OpenCvSharp.Point maxLoc);
+
+                double score = isSqDiff ? minVal : maxVal;
+                bool passed = isSqDiff ? minVal <= p.MatchThreshold : maxVal >= p.MatchThreshold;
+
+                if (!passed) break;
+
+                var matchLoc = isSqDiff ? minLoc : maxLoc;
+                var matchRect = new OpenCvSharp.Rect(matchLoc.X, matchLoc.Y, templateMat.Cols, templateMat.Rows);
+
+                // Non-maximum suppression: skip if heavily overlapping a previously accepted match
+                bool suppressed = false;
+                foreach (var prev in accepted)
                 {
-                    suppressed = true;
-                    break;
+                    var intersection = prev & matchRect; // & = intersect for OpenCvSharp Rect
+                    double overlapArea = intersection.Width > 0 && intersection.Height > 0
+                        ? (double)(intersection.Width * intersection.Height)
+                        : 0;
+                    double unionArea = prev.Width * prev.Height + matchRect.Width * matchRect.Height - overlapArea;
+                    if (unionArea > 0 && overlapArea / unionArea > nmsOverlap)
+                    {
+                        suppressed = true;
+                        break;
+                    }
+                }
+
+                if (!suppressed)
+                {
+                    accepted.Add(matchRect);
+                    Cv2.Rectangle(dst, matchLoc,
+                        new OpenCvSharp.Point(matchLoc.X + templateMat.Cols, matchLoc.Y + templateMat.Rows),
+                        Scalar.Red, 2);
+                }
+
+                // Suppress this peak in the score map so the next iteration finds the next-best match
+                int maskPad = Math.Max(1, Math.Min(templateMat.Cols, templateMat.Rows) / 2);
+                int mx = Math.Max(0, matchLoc.X - maskPad);
+                int my = Math.Max(0, matchLoc.Y - maskPad);
+                int mw = Math.Min(result.Cols - mx, templateMat.Cols + maskPad * 2);
+                int mh = Math.Min(result.Rows - my, templateMat.Rows + maskPad * 2);
+                if (mw > 0 && mh > 0)
+                {
+                    var maskRegion = new OpenCvSharp.Rect(mx, my, mw, mh);
+                    result[maskRegion].SetTo(isSqDiff ? Scalar.All(double.MaxValue) : Scalar.All(-1));
                 }
             }
 
-            if (!suppressed)
-            {
-                accepted.Add(matchRect);
-                Cv2.Rectangle(dst, matchLoc,
-                    new OpenCvSharp.Point(matchLoc.X + template.Cols, matchLoc.Y + template.Rows),
-                    Scalar.Red, 2);
-            }
-
-            // Suppress this peak in the score map so the next iteration finds the next-best match
-            int maskPad = Math.Max(1, Math.Min(template.Cols, template.Rows) / 2);
-            int mx = Math.Max(0, matchLoc.X - maskPad);
-            int my = Math.Max(0, matchLoc.Y - maskPad);
-            int mw = Math.Min(result.Cols - mx, template.Cols + maskPad * 2);
-            int mh = Math.Min(result.Rows - my, template.Rows + maskPad * 2);
-            if (mw > 0 && mh > 0)
-            {
-                var maskRegion = new OpenCvSharp.Rect(mx, my, mw, mh);
-                result[maskRegion].SetTo(isSqDiff ? Scalar.All(double.MaxValue) : Scalar.All(-1));
-            }
+            result.Dispose();
+            return dst;
         }
-
-        result.Dispose();
-        return dst;
+        finally
+        {
+            if (ownTemplate) templateMat.Dispose();
+        }
     }
 
     private static Mat ApplyDefectDetector(Mat src, InspectionStep step)
@@ -312,18 +334,54 @@ public static class StepExecutor
     private static Mat EnsureSameSize(Mat src, Mat target)
         => src.Size() == target.Size() ? src : src.Resize(target.Size());
 
-    private static Mat ApplyCropImage(Mat src, InspectionStep step)
+    private static Mat ApplyCropImage(Mat src, Mat? secondary, InspectionStep step)
     {
         var p = DeserializeParams<CropParams>(step.ParametersJson);
 
-        int x = Math.Max(0, p.X);
-        int y = Math.Max(0, p.Y);
-        int w = Math.Max(1, Math.Min(p.Width, src.Width - x));
-        int h = Math.Max(1, Math.Min(p.Height, src.Height - y));
+        OpenCvSharp.Rect roi;
 
-        if (w <= 0 || h <= 0) return src.Clone();
+        if (secondary != null && !secondary.Empty() && p.RegionStepOrder > 0)
+        {
+            // Derive the crop rectangle from the bounding rect of non-zero pixels in the secondary Mat.
+            // Works with binary masks (threshold, contour filter) and template crop images.
+            Mat? graySecondary = secondary.Channels() == 1
+                ? null   // use secondary directly; no conversion needed
+                : secondary.CvtColor(ColorConversionCodes.BGR2GRAY);
 
-        var roi = new OpenCvSharp.Rect(x, y, w, h);
+            Mat grayToUse = graySecondary ?? secondary;
+            try
+            {
+                using var nonZero = new Mat();
+                Cv2.FindNonZero(grayToUse, nonZero);
+
+                if (nonZero.Empty())
+                    return src.Clone();
+
+                var boundingRect = Cv2.BoundingRect(nonZero);
+
+                // Clamp to source dimensions
+                int rx = Math.Max(0, boundingRect.X);
+                int ry = Math.Max(0, boundingRect.Y);
+                int rw = Math.Min(boundingRect.Width, src.Width - rx);
+                int rh = Math.Min(boundingRect.Height, src.Height - ry);
+                roi = new OpenCvSharp.Rect(rx, ry, rw, rh);
+            }
+            finally
+            {
+                graySecondary?.Dispose();
+            }
+        }
+        else
+        {
+            int x = Math.Max(0, p.X);
+            int y = Math.Max(0, p.Y);
+            int w = Math.Max(1, Math.Min(p.Width, src.Width - x));
+            int h = Math.Max(1, Math.Min(p.Height, src.Height - y));
+            roi = new OpenCvSharp.Rect(x, y, w, h);
+        }
+
+        if (roi.Width <= 0 || roi.Height <= 0) return src.Clone();
+
         return new Mat(src, roi).Clone();
     }
 
@@ -387,30 +445,8 @@ public static class StepExecutor
 
         if (tw <= 0 || th <= 0) return src.Clone();
 
-        using var template = new Mat(src, new OpenCvSharp.Rect(tx, ty, tw, th));
-
-        var result = new Mat();
-        Cv2.MatchTemplate(src, template, result, p.Method);
-
-        Cv2.MinMaxLoc(result, out double minVal, out double maxVal,
-            out OpenCvSharp.Point minLoc, out OpenCvSharp.Point maxLoc);
-        result.Dispose();
-
-        bool passed = (p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed)
-            ? minVal <= p.MatchThreshold
-            : maxVal >= p.MatchThreshold;
-
-        var dst = src.Clone();
-        if (passed)
-        {
-            var matchLoc = (p.Method == TemplateMatchModes.SqDiff || p.Method == TemplateMatchModes.SqDiffNormed)
-                ? minLoc : maxLoc;
-            Cv2.Rectangle(dst, matchLoc,
-                new OpenCvSharp.Point(matchLoc.X + tw, matchLoc.Y + th),
-                Scalar.Red, 2);
-        }
-        // Draw the template region on the result
-        Cv2.Rectangle(dst, new OpenCvSharp.Rect(tx, ty, tw, th), Scalar.Yellow, 1);
-        return dst;
+        // Output the cropped template image so that a downstream TemplateMatcher step
+        // can reference it via TemplateStepOrder and use it as the template Mat directly.
+        return new Mat(src, new OpenCvSharp.Rect(tx, ty, tw, th)).Clone();
     }
 }

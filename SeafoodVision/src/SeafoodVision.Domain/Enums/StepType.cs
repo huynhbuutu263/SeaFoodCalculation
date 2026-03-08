@@ -109,8 +109,10 @@ public enum StepType : short
     GetRectangle = 83,
 
     /// <summary>
-    /// Template matching where the template is cropped from the input image using a defined region.
-    /// Params: TemplateX, TemplateY, TemplateWidth, TemplateHeight, Method, MatchThreshold.
+    /// Crops a region from the input image to produce a template image that a downstream
+    /// <see cref="TemplateMatcher"/> step can consume via its <c>TemplateStepOrder</c> parameter.
+    /// Params: TemplateX, TemplateY, TemplateWidth, TemplateHeight.
+    /// Output: the cropped template image (Mat).
     /// </summary>
     TemplateMatchRegion = 84
 }
