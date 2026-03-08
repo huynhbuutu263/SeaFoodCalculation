@@ -48,7 +48,7 @@ public static class StepExecutor
             StepType.SubtractImage => ApplySubtractImage(src, secondary, step),
             StepType.IntersectionRegion => ApplyIntersectionRegion(src, secondary, step),
             StepType.GetRectangle => ApplyGetRectangle(src, step),
-            StepType.TemplateMatchRegion => ApplyTemplateMatchRegion(src, step),
+            StepType.AddRegion => ApplyAddRegion(src, step),
             _ => throw new NotSupportedException($"Unsupported StepType: {step.StepType}")
         };
     }
@@ -209,13 +209,25 @@ public static class StepExecutor
     {
         var p = DeserializeParams<TemplateMatcherParams>(step.ParametersJson);
 
-        // Prefer the secondary input (from a TemplateMatchRegion step) over the file path
+        // Priority: secondary input (from AddRegion step) > drawn region > file path
         Mat? templateMat = null;
         bool ownTemplate = false;
 
         if (secondary != null && !secondary.Empty())
         {
             templateMat = secondary;
+        }
+        else if (p.UseDrawnRegion && p.DrawRegionWidth > 0 && p.DrawRegionHeight > 0)
+        {
+            int dx = Math.Max(0, p.DrawRegionX);
+            int dy = Math.Max(0, p.DrawRegionY);
+            int dw = Math.Max(1, Math.Min(p.DrawRegionWidth, src.Width - dx));
+            int dh = Math.Max(1, Math.Min(p.DrawRegionHeight, src.Height - dy));
+            if (dw > 0 && dh > 0)
+            {
+                templateMat = new Mat(src, new OpenCvSharp.Rect(dx, dy, dw, dh));
+                ownTemplate = true;
+            }
         }
         else if (!string.IsNullOrEmpty(p.TemplatePath) && System.IO.File.Exists(p.TemplatePath))
         {
@@ -434,9 +446,9 @@ public static class StepExecutor
         return dst;
     }
 
-    private static Mat ApplyTemplateMatchRegion(Mat src, InspectionStep step)
+    private static Mat ApplyAddRegion(Mat src, InspectionStep step)
     {
-        var p = DeserializeParams<TemplateMatchRegionParams>(step.ParametersJson);
+        var p = DeserializeParams<AddRegionParams>(step.ParametersJson);
 
         int tx = Math.Max(0, p.TemplateX);
         int ty = Math.Max(0, p.TemplateY);

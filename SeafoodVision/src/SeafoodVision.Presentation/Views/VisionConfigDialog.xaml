@@ -11,6 +11,7 @@
         d:DataContext="{d:DesignInstance Type=viewmodels:VisionConfigViewModel, IsDesignTimeCreatable=False}">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <!-- DataTemplate for ThresholdParams -->
         <DataTemplate DataType="{x:Type params:ThresholdParams}">
             <StackPanel Margin="10">
@@ -113,8 +114,40 @@
         <DataTemplate DataType="{x:Type params:TemplateMatcherParams}">
             <StackPanel Margin="10">
                 <TextBlock Text="Template Matcher" FontWeight="Bold" Margin="0,0,0,8"/>
-                <TextBlock Text="Template Image Path:" Margin="0,0,0,3"/>
+
+                <!-- Way 1: Load from dataset (file path) -->
+                <TextBlock Text="1. Load from dataset:" FontWeight="SemiBold" Margin="0,0,0,3"/>
                 <TextBox Text="{Binding TemplatePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+                <Separator Margin="0,0,0,8"/>
+
+                <!-- Way 2: Draw Region -->
+                <TextBlock Text="2. Draw Region as template:" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                <Button Content="🖍️ Draw Template Region on Preview"
+                        Command="{Binding DataContext.DrawTemplateMatcherRegionCommand,
+                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                        Padding="6,4" Margin="0,0,0,4" Background="#dfd" FontWeight="SemiBold"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                    <TextBlock Text="Region: " VerticalAlignment="Center"/>
+                    <TextBlock VerticalAlignment="Center">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="X:{0} Y:{1} W:{2} H:{3}">
+                                <Binding Path="DrawRegionX"/>
+                                <Binding Path="DrawRegionY"/>
+                                <Binding Path="DrawRegionWidth"/>
+                                <Binding Path="DrawRegionHeight"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                    <TextBlock Text=" (active)" Foreground="Green" FontStyle="Italic" FontSize="11" VerticalAlignment="Center"
+                               Visibility="{Binding UseDrawnRegion, Converter={StaticResource BoolToVis}}"/>
+                </StackPanel>
+                <Button Content="💾 Save Template Image"
+                        Command="{Binding DataContext.SaveTemplateImageCommand,
+                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                        Padding="6,4" Margin="0,0,0,8" Background="#ffd" FontWeight="SemiBold"/>
+
+                <Separator Margin="0,0,0,8"/>
 
                 <TextBlock Text="Match Threshold:" FontWeight="Bold" Margin="0,0,0,5"/>
                 <Slider Minimum="0" Maximum="1" Value="{Binding MatchThreshold, UpdateSourceTrigger=PropertyChanged}"
@@ -135,17 +168,17 @@
             </StackPanel>
         </DataTemplate>
 
-        <!-- DataTemplate for TemplateMatchRegionParams -->
-        <DataTemplate DataType="{x:Type params:TemplateMatchRegionParams}">
+        <!-- DataTemplate for AddRegionParams -->
+        <DataTemplate DataType="{x:Type params:AddRegionParams}">
             <StackPanel Margin="10">
                 <!-- Draw button – command lives in the parent VisionConfigViewModel via RelativeSource -->
-                <Button Content="🖼️ Draw Template Region on Preview"
+                <Button Content="🖼️ Draw Region on Preview"
                         Command="{Binding DataContext.DrawTemplateRegionCommand,
                                   RelativeSource={RelativeSource AncestorType=Window}}"
                         Padding="6,4" Margin="0,0,0,8" Background="#ddf" FontWeight="SemiBold"/>
 
-                <!-- ROI picker: select an existing recipe ROI as the template source -->
-                <TextBlock Text="— or pick a Recipe ROI as template —"
+                <!-- ROI picker: select an existing recipe ROI as the region source -->
+                <TextBlock Text="— or pick a Recipe ROI as region —"
                            HorizontalAlignment="Center" Foreground="Gray" FontStyle="Italic" FontSize="11" Margin="0,0,0,4"/>
                 <ComboBox x:Name="RoiSourceCombo"
                           ItemsSource="{Binding DataContext.AllRois,
@@ -158,20 +191,20 @@
 
                 <Separator Margin="0,0,0,10"/>
 
-                <TextBlock Text="Template Region (pixels – relative to ROI crop):" FontWeight="Bold" Margin="0,0,0,8"/>
+                <TextBlock Text="Region (pixels – relative to ROI crop):" FontWeight="Bold" Margin="0,0,0,8"/>
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition Width="80"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Tmpl X:" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="X:" VerticalAlignment="Center"/>
                     <TextBox  Grid.Row="0" Grid.Column="1" Text="{Binding TemplateX, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Tmpl Y:" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Y:" VerticalAlignment="Center"/>
                     <TextBox  Grid.Row="1" Grid.Column="1" Text="{Binding TemplateY, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Tmpl W:" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Width:" VerticalAlignment="Center"/>
                     <TextBox  Grid.Row="2" Grid.Column="1" Text="{Binding TemplateWidth, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Tmpl H:" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Height:" VerticalAlignment="Center"/>
                     <TextBox  Grid.Row="3" Grid.Column="1" Text="{Binding TemplateHeight, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
                 </Grid>
                 <TextBlock Text="Match Threshold:" FontWeight="Bold" Margin="0,10,0,5"/>

@@ -104,7 +104,7 @@ public sealed class VisionStepViewModel : ViewModelBase
                 StepType.SubtractImage => JsonSerializer.Deserialize<SubtractImageParams>(json, _jsonOptions) ?? new SubtractImageParams(),
                 StepType.IntersectionRegion => JsonSerializer.Deserialize<IntersectionRegionParams>(json, _jsonOptions) ?? new IntersectionRegionParams(),
                 StepType.GetRectangle => JsonSerializer.Deserialize<GetRectangleParams>(json, _jsonOptions) ?? new GetRectangleParams(),
-                StepType.TemplateMatchRegion => JsonSerializer.Deserialize<TemplateMatchRegionParams>(json, _jsonOptions) ?? new TemplateMatchRegionParams(),
+                StepType.AddRegion => JsonSerializer.Deserialize<AddRegionParams>(json, _jsonOptions) ?? new AddRegionParams(),
                 _ => new object()
             };
         }
@@ -134,7 +134,7 @@ public sealed class VisionStepViewModel : ViewModelBase
             StepType.SubtractImage => new SubtractImageParams(),
             StepType.IntersectionRegion => new IntersectionRegionParams(),
             StepType.GetRectangle => new GetRectangleParams(),
-            StepType.TemplateMatchRegion => new TemplateMatchRegionParams(),
+            StepType.AddRegion => new AddRegionParams(),
             _ => new object()
         };
     }

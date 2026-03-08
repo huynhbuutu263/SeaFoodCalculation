@@ -130,10 +130,10 @@ public partial class VisionConfigDialog : Window
         }
     }
 
-    // ── ROI source picker for TemplateMatchRegion ─────────────────────────────
+    // ── ROI source picker for AddRegion ─────────────────────────────────────────
 
     /// <summary>
-    /// When the user picks a recipe ROI from the combo-box inside the TemplateMatchRegionParams
+    /// When the user picks a recipe ROI from the combo-box inside the AddRegionParams
     /// DataTemplate, forward the selection to the ViewModel so it can translate coordinates.
     /// </summary>
     private void RoiSourceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
